@@ -1,0 +1,65 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "paymentDay",
+						"type": "uint256"
+					}
+				],
+				"name": "getNextPaymentTimestamp",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/DateUtils.sol": "DateUtils"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/DateUtils.sol": {
+			"keccak256": "0xdb4fe7b3b50aa6317cb577ebe48de21b1cb97222baeb37f06b35da78d6aac4b7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://77c550ae30c844cc47d859cd9bb30457e8142a3a1be50a27525704220487e5bc",
+				"dweb:/ipfs/QmNjxfr6sNAsvNuW6qVe9StWuXR4uwWADPzhECPd5Ar1jX"
+			]
+		}
+	},
+	"version": 1
+}

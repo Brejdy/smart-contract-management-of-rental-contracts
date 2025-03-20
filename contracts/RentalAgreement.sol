@@ -3,8 +3,11 @@ pragma solidity ^0.8.20;
 
 import "./AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./DateUtils.sol";
 
 contract RentalAgreement {
+    using DateUtils for uint;
+
     address public landlord;
     address public tenant;
     uint public rentAmount;
@@ -23,9 +26,11 @@ contract RentalAgreement {
     uint public terminationTimeStamp;
     uint public contractEndDate;
     uint public leaseStartTimestamp;
-    bool public renewalRequest;
+    bool public renewalRequested;
     bool public renewalApproved;
     mapping(address => bool) public autoPaymentApproved;
+    bool public earlyTerminationRequestedByLandlord;
+    uint public paymentDate;
 
     enum RentalStatus { Active, Terminated, PendingTermination }
     RentalStatus public rentalStatus;
@@ -49,7 +54,9 @@ contract RentalAgreement {
     event TerminationScheduled(uint terminationDate);
     event ContractExpirationWarning(uint monthsLeft);
     event ContractRenewed(uint contractEndDate);
-    event ContracRenewalRequested(address indexed landlord);
+    event ContractRenewalRequested(address indexed landlord);
+    event PaymentMissed(address indexed tenant, uint missedAmount);
+    event PaymentDueDateUpdate(uint nextPaymentDate);
 
     modifier onlyLandlord() {
         require(msg.sender == landlord, "Only landlord can perform this action");
@@ -117,9 +124,22 @@ contract RentalAgreement {
         emit RentPaid(tenant, amountToPay, true);
      }
 
-     function payRent() external payable onlyTenant {
-        require(rentalStatus == RentalStatus.Active, "Rental contract is not active");
+     function checkAndUpdateNextPayment() public {
+        uint nextPaymentTimestamp = DateUtils.getNextPaymentTimestamp(paymentDate);
 
+        if(block.timestamp > nextPaymentTimestamp) {
+            amountOwed += rentAmount;
+            emit PaymentMissed(tenant, rentAmount);
+        }
+
+        emit PaymentDueDateUpdate(nextPaymentTimestamp);
+     }
+
+     function payRent() external payable onlyTenant {
+        require(rentalStatus != RentalStatus.Terminated, "Rental contract is not active");
+
+        checkAndUpdateNextPayment();
+        
         uint amountToPay;
         if (isStabelcoinPayment) {
             amountToPay = rentAmount;
@@ -131,7 +151,7 @@ contract RentalAgreement {
 
             payable(landlord).transfer(amountToPay);
         }
-        if (amountOwed == amountToPay) {
+        if (amountOwed <= amountToPay) {
             amountOwed = 0;
         } else {
             amountOwed -= amountToPay;
@@ -156,13 +176,8 @@ contract RentalAgreement {
         return paymentHistory;
      }
 
-     function getNextPaymentTimeStamp() public view returns (uint) {
-        uint currentMonth = block.timestamp / 30 days;
-        return (currentMonth + 1) * 30 days + paymentDueDate * 1 days;
-     }
-
      function requestWarning() external onlyLandlord {
-        require(block.timestamp > getNextPaymentTimeStamp() + 7 days, "Warning not applicable yet");
+        require(block.timestamp > DateUtils.getNextPaymentTimestamp(paymentDate) + 7 days, "Warning not applicable yet");
         pendingSevereBreachWarning = true;
         emit SevereBreachWarningRequested(tenant);
      }
@@ -236,7 +251,7 @@ contract RentalAgreement {
 
      function terminateContractIfNotRenewed() external {
         require(block.timestamp >= contractEndDate, "Contract has not expired yet");
-        require(!renewalApproved || !renewalRequest, "Contract has been renewed");
+        require(!renewalApproved || !renewalRequested, "Contract has been renewed");
 
         rentalStatus = RentalStatus.Terminated;
         emit ContractTerminated(landlord, "Contract expired without renewal");
@@ -244,18 +259,18 @@ contract RentalAgreement {
 
      function requestContractRenewal() external onlyTenant {
         require(rentalStatus == RentalStatus.Active, "Contract has already expired");
-        renewalRequest = true;
+        renewalRequested = true;
 
-        emit ContracRenewalRequested(msg.sender);
+        emit ContractRenewalRequested(msg.sender);
      }
 
      function approveContractRenewal() external onlyLandlord {
-        require(renewalRequest == true, "Tennant has not asked for renewal");
+        require(renewalRequested == true, "Tennant has not asked for renewal");
 
         renewalApproved = true;
         contractEndDate += 365 days;
 
-        renewalRequest = false;
+        renewalRequested = false;
         renewalApproved = false;
 
         emit ContractRenewed(contractEndDate);
@@ -276,7 +291,7 @@ contract RentalAgreement {
         emit ContractTerminated(landlord, "More than 3 payments were not registered. Contract is terminated.");
      }
 
-     function requestTerminationByTennant() external onlyTenant {
+     function requestTerminationByTenant() external onlyTenant {
         require(rentalStatus == RentalStatus.Active, "Contract is not Active");
         terminationTimeStamp = block.timestamp + 90 days;
         rentalStatus = RentalStatus.PendingTermination;
@@ -284,9 +299,25 @@ contract RentalAgreement {
         emit TerminationScheduled(terminationTimeStamp);
      }
 
+     function requestEarlyTerminationByLandLord() external onlyLandlord {
+        require(rentalStatus == RentalStatus.PendingTermination, "Contract must be pending temination");
+        earlyTerminationRequestedByLandlord = true;
+     }
+
+     function confirmEarlyTermination() external onlyTenant {
+        require(rentalStatus == RentalStatus.PendingTermination, "Contract  must be pending termination");
+        require(earlyTerminationRequestedByLandlord, "Landlord has not requested early termination");
+
+        rentalStatus == RentalStatus.Terminated;
+        earlyTerminationRequestedByLandlord = false;
+
+        emit ContractTerminated(msg.sender, "Contract terminated early by mutual agreement");
+     }
+
      function executeTenantTermination() external {
         require(rentalStatus == RentalStatus.PendingTermination, "Termination not scheduled");
         require(block.timestamp >= terminationTimeStamp, "Termination period not reached");
+        require(amountOwed == 0, "All debts must be payed");
 
         rentalStatus = RentalStatus.Terminated;
         emit ContractTerminated(tenant, "Tenant terminated the lease agreement");
