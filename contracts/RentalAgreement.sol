@@ -73,6 +73,8 @@ contract RentalAgreement is ReentrancyGuard {
     event ContractRenewalRequested(address indexed landlord);
     event PaymentMissed(address indexed tenant, uint256 missedAmount);
     event PaymentDueDateUpdate(uint256 nextPaymentDate);
+    event Debug(uint256 val);
+
 
     modifier onlyLandlord() {
         require(
@@ -124,9 +126,10 @@ contract RentalAgreement is ReentrancyGuard {
         emit ContractSigned(landlord, tenant, contractIPFSHash);
     }
 
-    function getLatestPrice() public view returns (uint256) {
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        return uint256(price * 10**10);
+    function getLatestPrice() public pure returns (uint256) {
+        //(, int256 price, , , ) = priceFeed.latestRoundData();
+        //return uint256(price * 10**8);
+        return 2000*10**8;
     }
 
     function authorizeAutoPayment() external onlyTenant {
@@ -174,7 +177,7 @@ contract RentalAgreement is ReentrancyGuard {
             "Rental contract is not active"
         );
 
-        checkAndUpdateNextPayment();
+        //checkAndUpdateNextPayment();
 
         uint256 amountToPay;
         if (isStabelcoinPayment) {
@@ -189,10 +192,16 @@ contract RentalAgreement is ReentrancyGuard {
             );
         } else {
             uint256 ethPrice = getLatestPrice();
-            amountToPay = (rentAmount * 1e18) / ethPrice;
+            amountToPay = (rentAmount * 1e26) / ethPrice;
             require(msg.value >= amountToPay, "Insufficent ETH sent");
 
             payable(landlord).transfer(amountToPay);
+
+            if (msg.value > amountToPay) {
+                uint256 excess = msg.value - amountToPay;
+                payable(msg.sender).transfer(excess);
+            }
+
         }
         if (amountOwed <= amountToPay) {
             amountOwed = 0;
@@ -253,7 +262,7 @@ contract RentalAgreement is ReentrancyGuard {
             depositBalance += amountToPay;
         } else {
             uint256 ethPrice = getLatestPrice();
-            amountToPay = (depositAmount * 1e18) / ethPrice;
+            amountToPay = (depositAmount * 1e26) / ethPrice;
             require(msg.value >= amountToPay, "Insufficient ETH sent");
 
             uint256 excessAmount = msg.value - amountToPay;
@@ -288,9 +297,10 @@ contract RentalAgreement is ReentrancyGuard {
         return updatedDeposit;
     }
 
-    function getLatestInterestRate() public view returns (uint256) {
-        (, int256 rate, , , ) = priceFeed.latestRoundData();
-        return uint256(rate);
+    function getLatestInterestRate() public pure returns (uint256) {
+        //(, int256 rate, , , ) = priceFeed.latestRoundData();
+        //return uint256(rate);
+        return 3;
     }
 
     function returnDeposit() external onlyLandlord nonReentrant {
@@ -423,5 +433,11 @@ contract RentalAgreement is ReentrancyGuard {
     function terminateContract(string memory reason) external onlyLandlord {
         rentalStatus = RentalStatus.Terminated;
         emit ContractTerminated(landlord, reason);
+    }
+
+    function getRentalStatus() public view returns (string memory) {
+        if (rentalStatus == RentalStatus.Active) return "Active";
+        if (rentalStatus == RentalStatus.Terminated) return "Terminated";
+        return "PendingTermination";
     }
 }

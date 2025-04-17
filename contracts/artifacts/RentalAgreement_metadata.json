@@ -138,6 +138,19 @@
 				"anonymous": false,
 				"inputs": [
 					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "val",
+						"type": "uint256"
+					}
+				],
+				"name": "Debug",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
 						"indexed": true,
 						"internalType": "address",
 						"name": "landlord",
@@ -532,7 +545,7 @@
 						"type": "uint256"
 					}
 				],
-				"stateMutability": "view",
+				"stateMutability": "pure",
 				"type": "function"
 			},
 			{
@@ -545,7 +558,7 @@
 						"type": "uint256"
 					}
 				],
-				"stateMutability": "view",
+				"stateMutability": "pure",
 				"type": "function"
 			},
 			{
@@ -573,6 +586,19 @@
 						"internalType": "struct RentalAgreement.PaymentRecord[]",
 						"name": "",
 						"type": "tuple[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getRentalStatus",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
 					}
 				],
 				"stateMutability": "view",
@@ -933,11 +959,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x8cddd90988af65b4bebc80fa787d9e7decbb144ebc59b33dcc898a4593eb3718",
+			"keccak256": "0x2d3891c9e2538de79a3165617cbdc586d388f641a4f5f5dff4d57a0385f0e135",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://1b311e6a72988fc589a3c7990d0784e54c3f84a56b52b635952147638c733009",
-				"dweb:/ipfs/Qmd2PNm4FMSv1JxxCCn8aGNw3rGEHhF7YW1jN1pRCsq6iw"
+				"bzz-raw://d7992a6b0f49a9585d613993f69636780e0c373389997ca73ae60b1dc872d3e9",
+				"dweb:/ipfs/QmZ87vRFMVPCifkErMmxd1RhpqNMJZ6DiAK6uY1QTWtUxE"
 			]
 		}
 	},
