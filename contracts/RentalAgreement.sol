@@ -216,7 +216,7 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function checkContractExpiration() external {
-        require(rentalStatus == RentalStatus.Active, "Contract is not active");
+        require(rentalStatus == RentalStatus.Active || rentalStatus == RentalStatus.PendingTermination, "Contract is not active");
         uint256 timeLeft = contractEndDate - block.timestamp;
         if (timeLeft == 60 days || timeLeft == 30) {
             emit ContractExpirationWarning(timeLeft / 86400);
@@ -276,16 +276,21 @@ contract RentalAgreement is ReentrancyGuard {
         emit DepositPaid(msg.sender, amountToPay, isStabelcoinPayment);
     }
 
-    function deductFromDeposit(uint256 amount, string memory reason)
+    function deductFromDeposit(uint256 usdAmount, string memory reason)
         external
         onlyLandlord
         nonReentrant
     {
-        require(amount <= depositBalance, "Deduction exceeds deposit amount");
-        depositBalance -= amount;
-        deductedAmount += amount;
-        payable(landlord).transfer(amount);
-        emit DepositDeducted(landlord, amount, reason);
+        uint256 ethPrice = getLatestPrice();
+        uint256 weiAmount = (usdAmount * 1e18 * 1e8) / ethPrice;
+
+        require(weiAmount <= depositBalance, "Deduction exceeds deposit amount");
+        depositBalance -= weiAmount;
+        deductedAmount += weiAmount;
+
+        payable(landlord).transfer(weiAmount);
+
+        emit DepositDeducted(landlord, weiAmount, reason);
     }
 
     function calculateUpdatedDeposit() public view returns (uint256) {
