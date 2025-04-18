@@ -281,17 +281,31 @@ contract RentalAgreement is ReentrancyGuard {
         onlyLandlord
         nonReentrant
     {
-        uint256 ethPrice = getLatestPrice();
-        uint256 weiAmount = (usdAmount * 1e18 * 1e8) / ethPrice;
+        uint256 amountToDeduct;
 
-        require(weiAmount <= depositBalance, "Deduction exceeds deposit amount");
-        depositBalance -= weiAmount;
-        deductedAmount += weiAmount;
+        if (isStabelcoinPayment) {
+            amountToDeduct = usdAmount * 1e18;
+            require(amountToDeduct <= depositBalance, "Deduction exceeds deposit amount");
 
-        payable(landlord).transfer(weiAmount);
+            depositBalance -= amountToDeduct;
+            deductedAmount += amountToDeduct;
 
-        emit DepositDeducted(landlord, weiAmount, reason);
+            require(IERC20(stabelcoinAddress).transfer(landlord, amountToDeduct), "Stablecoin transfer failed");
+        } else {
+            uint256 ethPrice = getLatestPrice();
+            amountToDeduct = (usdAmount * 1e18 * 1e8) / ethPrice;
+
+            require(amountToDeduct <= depositBalance, "Deduction exceeds deposit amount");
+
+            depositBalance -= amountToDeduct;
+            deductedAmount += amountToDeduct;
+
+            payable(landlord).transfer(amountToDeduct);
+        }
+
+        emit DepositDeducted(landlord, amountToDeduct, reason);
     }
+
 
     function calculateUpdatedDeposit() public view returns (uint256) {
         uint256 timeElapsed = block.timestamp - depositStartTime;

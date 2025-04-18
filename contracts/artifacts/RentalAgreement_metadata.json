@@ -442,7 +442,7 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
-						"name": "amount",
+						"name": "usdAmount",
 						"type": "uint256"
 					},
 					{
@@ -959,11 +959,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x2d3891c9e2538de79a3165617cbdc586d388f641a4f5f5dff4d57a0385f0e135",
+			"keccak256": "0x17150c1457978655875790e9e1c8903ea400fc04bf99b8863819e44ea11d39d7",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://d7992a6b0f49a9585d613993f69636780e0c373389997ca73ae60b1dc872d3e9",
-				"dweb:/ipfs/QmZ87vRFMVPCifkErMmxd1RhpqNMJZ6DiAK6uY1QTWtUxE"
+				"bzz-raw://4f57357890db5fd92d0da0cab23dd8ae7a25808fabfd64b417f3058731ac2dcc",
+				"dweb:/ipfs/QmQEq8GfL5vnqZHtAe4Jsw8xiDgGo6vd4W7tn65XZgQfgG"
 			]
 		}
 	},
