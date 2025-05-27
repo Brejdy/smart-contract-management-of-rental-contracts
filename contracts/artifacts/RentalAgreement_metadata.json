@@ -1,6 +1,6 @@
 {
 	"compiler": {
-		"version": "0.8.26+commit.8a97fa7a"
+		"version": "0.8.30+commit.73712a01"
 	},
 	"language": "Solidity",
 	"output": {
@@ -545,7 +545,7 @@
 						"type": "uint256"
 					}
 				],
-				"stateMutability": "pure",
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -558,7 +558,7 @@
 						"type": "uint256"
 					}
 				],
-				"stateMutability": "pure",
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -914,7 +914,7 @@
 		"compilationTarget": {
 			"contracts/RentalAgreement.sol": "RentalAgreement"
 		},
-		"evmVersion": "cancun",
+		"evmVersion": "prague",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
@@ -959,11 +959,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x17150c1457978655875790e9e1c8903ea400fc04bf99b8863819e44ea11d39d7",
+			"keccak256": "0xaddca603013df9ef6686158228ef1fc5d72fde1569eb392273e4e84062fa42ce",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4f57357890db5fd92d0da0cab23dd8ae7a25808fabfd64b417f3058731ac2dcc",
-				"dweb:/ipfs/QmQEq8GfL5vnqZHtAe4Jsw8xiDgGo6vd4W7tn65XZgQfgG"
+				"bzz-raw://aaebda4fe79bf7bf415547bd0b44da60e7c794fb52c8d191fde4bd0cecc061f6",
+				"dweb:/ipfs/QmcWBb7ktYBFFHjk5EQ3BwgPJavQ4eW7Y3nHMTTECJnfin"
 			]
 		}
 	},
