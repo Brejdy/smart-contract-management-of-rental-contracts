@@ -78,15 +78,17 @@ contract RentalAgreement is ReentrancyGuard {
 
 
     modifier onlyLandlord() {
-        require(
-            msg.sender == landlord,
-            "Only landlord can perform this action"
-        );
+        require( msg.sender == landlord, "Only landlord can perform this action");
         _;
     }
 
     modifier onlyTenant() {
         require(msg.sender == tenant, "Only Tenant can perform this action");
+        _;
+    }
+
+    modifier onlyParticipants() {
+        require(msg.sender == landlord || msg.sender == tenant, "Only landlord or tenant can perform this action;");
         _;
     }
 
@@ -127,7 +129,7 @@ contract RentalAgreement is ReentrancyGuard {
         emit ContractSigned(landlord, tenant, contractIPFSHash);
     }
 
-    function getLatestPrice() public view returns (uint256) {
+    function getLatestPrice() public view onlyParticipants returns (uint256) {
         (, int256 price, , , ) = priceFeed.latestRoundData();
         return uint256(price * 10**8);
         //return 2000*10**8;
@@ -159,10 +161,8 @@ contract RentalAgreement is ReentrancyGuard {
         emit RentPaid(tenant, amountToPay, true);
     }
 
-    function checkAndUpdateNextPayment() public {
-        uint256 nextPaymentTimestamp = DateUtils.getNextPaymentTimestamp(
-            paymentDate
-        );
+    function checkAndUpdateNextPayment() public onlyParticipants {
+        uint256 nextPaymentTimestamp = DateUtils.getNextPaymentTimestamp(paymentDate);
 
         if (block.timestamp > nextPaymentTimestamp) {
             amountOwed += rentAmount;
@@ -183,19 +183,16 @@ contract RentalAgreement is ReentrancyGuard {
         uint256 amountToPay;
         if (isStabelcoinPayment) {
             amountToPay = rentAmount;
-            require(
-                IERC20(stabelcoinAddress).transferFrom(
-                    msg.sender,
-                    landlord,
-                    amountToPay
-                ),
-                "Stablecoin payment failed"
-            );
-        } else {
+            
+            emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
+            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, landlord, amountToPay), "Stablecoin payment failed");
+        } 
+        else {
             uint256 ethPrice = getLatestPrice();
             amountToPay = (rentAmount * 1e26) / ethPrice;
             require(msg.value >= amountToPay, "Insufficent ETH sent");
 
+            emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
             payable(landlord).transfer(amountToPay);
 
             if (msg.value > amountToPay) {
@@ -203,8 +200,6 @@ contract RentalAgreement is ReentrancyGuard {
                 payable(msg.sender).transfer(excess);
             }
         }
-        emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-
 
         if (amountOwed <= amountToPay) {
             amountOwed = 0;
@@ -217,30 +212,21 @@ contract RentalAgreement is ReentrancyGuard {
         );
     }
 
-    function checkContractExpiration() external {
+    function checkContractExpiration() external onlyParticipants {
         require(rentalStatus == RentalStatus.Active || rentalStatus == RentalStatus.PendingTermination, "Contract is not active");
         uint256 timeLeft = contractEndDate - block.timestamp;
-        if (timeLeft == 60 days || timeLeft == 30) {
-            emit ContractExpirationWarning(timeLeft / 86400);
-        } else if (timeLeft >= 14 days) {
+        uint256 daysLeft = timeLeft / 1 days;
+        if (daysLeft == 60 days || daysLeft == 30 || daysLeft >= 14 days) {
             emit ContractExpirationWarning(timeLeft / 86400);
         }
     }
 
-    function getPaymentHistory()
-        external
-        view
-        returns (PaymentRecord[] memory)
-    {
+    function getPaymentHistory() external view onlyParticipants returns (PaymentRecord[] memory) {
         return paymentHistory;
     }
 
     function requestWarning() external onlyLandlord {
-        require(
-            block.timestamp >
-                DateUtils.getNextPaymentTimestamp(paymentDate) + 7 days,
-            "Warning not applicable yet"
-        );
+        require(block.timestamp > DateUtils.getNextPaymentTimestamp(paymentDate) + 7 days, "Warning not applicable yet");
         pendingSevereBreachWarning = true;
         emit SevereBreachWarningRequested(tenant);
     }
@@ -309,7 +295,7 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
 
-    function calculateUpdatedDeposit() public view returns (uint256) {
+    function calculateUpdatedDeposit() public view onlyParticipants returns (uint256) {
         uint256 timeElapsed = block.timestamp - depositStartTime;
         uint256 yearsElapsed = timeElapsed / 365 days;
         uint256 interestRate = getLatestInterestRate();
@@ -318,7 +304,7 @@ contract RentalAgreement is ReentrancyGuard {
         return updatedDeposit;
     }
 
-    function getLatestInterestRate() public view returns (uint256) {
+    function getLatestInterestRate() public view onlyParticipants returns (uint256) {
         (, int256 rate, , , ) = priceFeed.latestRoundData();
         return uint256(rate);
         //return 3;
@@ -345,24 +331,15 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function terminateContractIfNotRenewed() external onlyLandlord {
-        require(
-            block.timestamp >= contractEndDate,
-            "Contract has not expired yet"
-        );
-        require(
-            !renewalApproved || !renewalRequested,
-            "Contract has been renewed"
-        );
+        require(block.timestamp >= contractEndDate, "Contract has not expired yet");
+        require(!renewalApproved || !renewalRequested, "Contract has been renewed");
 
         rentalStatus = RentalStatus.Terminated;
         emit ContractTerminated(landlord, "Contract expired without renewal");
     }
 
     function requestContractRenewal() external onlyTenant {
-        require(
-            rentalStatus == RentalStatus.Active,
-            "Contract has already expired"
-        );
+        require(rentalStatus == RentalStatus.Active, "Contract has already expired");
         renewalRequested = true;
 
         emit ContractRenewalRequested(msg.sender);
@@ -462,7 +439,7 @@ contract RentalAgreement is ReentrancyGuard {
         emit ContractTerminated(landlord, reason);
     }
 
-    function getRentalStatus() public view returns (string memory) {
+    function getRentalStatus() public view onlyParticipants returns (string memory) {
         if (rentalStatus == RentalStatus.Active) return "Active";
         if (rentalStatus == RentalStatus.Terminated) return "Terminated";
         return "PendingTermination";
