@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.20 <0.9.0;
-
+pragma solidity ^0.8.20;
 
 import "./AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -10,8 +9,8 @@ import "./DateUtils.sol";
 contract RentalAgreement is ReentrancyGuard {
     using DateUtils for uint256;
 
-    address public landlord;
-    address public tenant;
+    address public immutable landlord;
+    address public immutable tenant;
     uint256 public rentAmount;
     uint256 public depositAmount;
     string public contractIPFSHash;
@@ -148,14 +147,7 @@ contract RentalAgreement is ReentrancyGuard {
         require(rentalStatus == RentalStatus.Active, "Contract is not active");
 
         uint256 amountToPay = rentAmount;
-        require(
-            IERC20(stabelcoinAddress).transferFrom(
-                tenant,
-                landlord,
-                amountToPay
-            ),
-            "Auto pay failed"
-        );
+        require(IERC20(stabelcoinAddress).transferFrom(tenant, landlord, amountToPay ), "Auto pay failed" );
 
         paymentHistory.push(PaymentRecord(block.timestamp, amountToPay, true));
         emit RentPaid(tenant, amountToPay, true);
@@ -193,11 +185,13 @@ contract RentalAgreement is ReentrancyGuard {
             require(msg.value >= amountToPay, "Insufficent ETH sent");
 
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            payable(landlord).transfer(amountToPay);
+            (bool sent1, ) = payable(landlord).call{value: amountToPay}("");
+            require(sent1, "Failed to send ETH");
 
             if (msg.value > amountToPay) {
                 uint256 excess = msg.value - amountToPay;
-                payable(msg.sender).transfer(excess);
+                (bool sent2, ) = payable(msg.sender).call{value: excess}("");
+                require(sent2, "Failed to send ETH back");
             }
         }
 
@@ -261,7 +255,8 @@ contract RentalAgreement is ReentrancyGuard {
             if (excessAmount > 0) 
             {
                 emit DepositPaid(msg.sender, amountToPay, isStabelcoinPayment);
-                payable(msg.sender).transfer(excessAmount);
+                (bool sent, ) = payable(msg.sender).call{value: excessAmount}("");
+                require(sent, "Refund failed");
             }
 
             depositBalance += amountToPay;
@@ -290,7 +285,8 @@ contract RentalAgreement is ReentrancyGuard {
             deductedAmount += amountToDeduct;
 
             emit DepositDeducted(landlord, amountToDeduct, reason);
-            payable(landlord).transfer(amountToDeduct);
+            (bool sent, ) = payable(landlord).call{value: amountToDeduct}("");
+            require(sent, "Failed to send ETH");
         }
     }
 
@@ -311,22 +307,21 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function returnDeposit() external nonReentrant onlyLandlord {
-        require(
-            rentalStatus == RentalStatus.Terminated,
-            "Contract must ber terminated"
-        );
+        require(rentalStatus == RentalStatus.Terminated, "Contract must ber terminated");
 
         uint256 updatedDeposit = calculateUpdatedDeposit();
         depositBalance = 0;
 
-        emit DepositReturned(msg.sender, updatedDeposit);
         if (isStabelcoinPayment)
         {
+            emit DepositReturned(msg.sender, updatedDeposit);
             require(IERC20(stabelcoinAddress).transfer(tenant, updatedDeposit), "Stablecoin payment failed");
         }
         else 
         {
-            payable(tenant).transfer(updatedDeposit);
+            emit DepositReturned(msg.sender, updatedDeposit);
+            (bool sent, ) = payable(tenant).call{value: updatedDeposit}("");
+            require(sent, "Failed to send Ether");
         }
     }
 
