@@ -220,6 +220,25 @@
 				"anonymous": false,
 				"inputs": [
 					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "tenant",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "ExcesRentReturned",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
 						"indexed": false,
 						"internalType": "uint256",
 						"name": "nextPaymentDate",
@@ -959,11 +978,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x98cc3724d87c2b48035e7d86900ab2419861b628af8dbca05e9b12b876643ec6",
+			"keccak256": "0xc1a0159a4b27694342df4fe19d5347bc119efb109360ddf5c2bcc8ab2d309dab",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://7aea21de419f8b6f84cb5b55776e94414b11e75f0777328b642bd5c0b2c65d95",
-				"dweb:/ipfs/QmQmTQtesCWzmVtbGmgfvYs7YHWiDoyQPdkmxU8Qt2xqgq"
+				"bzz-raw://c4f1c79c33e73d6be3de675b1073ddbcc5b28dd572577746ba7dea55787e300b",
+				"dweb:/ipfs/QmfJRp7VJ9pkZpPR7xcuYEh1NGNG8h6U2d1Yy1BhZJkqQT"
 			]
 		}
 	},

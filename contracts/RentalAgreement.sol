@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.30;
 
 import "./AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -74,6 +74,7 @@ contract RentalAgreement is ReentrancyGuard {
     event PaymentMissed(address indexed tenant, uint256 missedAmount);
     event PaymentDueDateUpdate(uint256 nextPaymentDate);
     event Debug(uint256 val);
+    event ExcesRentReturned(address indexed tenant, uint amount);
 
 
     modifier onlyLandlord() {
@@ -185,13 +186,18 @@ contract RentalAgreement is ReentrancyGuard {
             require(msg.value >= amountToPay, "Insufficent ETH sent");
 
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            (bool sent1, ) = payable(landlord).call{value: amountToPay}("");
-            require(sent1, "Failed to send ETH");
+            // safe call - landlord is immutable and set in constructor
+            //(bool sent1, ) = payable(landlord).call{value: amountToPay}("");
+            //require(sent1, "Failed to send ETH");
+            payable(landlord).transfer(amountToPay);
 
             if (msg.value > amountToPay) {
                 uint256 excess = msg.value - amountToPay;
-                (bool sent2, ) = payable(msg.sender).call{value: excess}("");
-                require(sent2, "Failed to send ETH back");
+                // safe call - function protected by modifier onlyTenant
+                // (bool sent2, ) = payable(msg.sender).call{value: excess}("");
+                // require(sent2, "Failed to send ETH back");
+                emit ExcesRentReturned(msg.sender, excess);
+                payable(msg.sender).transfer(excess);
             }
         }
 
@@ -255,8 +261,10 @@ contract RentalAgreement is ReentrancyGuard {
             if (excessAmount > 0) 
             {
                 emit DepositPaid(msg.sender, amountToPay, isStabelcoinPayment);
-                (bool sent, ) = payable(msg.sender).call{value: excessAmount}("");
-                require(sent, "Refund failed");
+                // safe call - function protected by onlyTenant modifier
+                // (bool sent, ) = payable(msg.sender).call{value: excessAmount}("");
+                // require(sent, "Refund failed");
+                payable(msg.sender).transfer(excessAmount);
             }
 
             depositBalance += amountToPay;
@@ -285,8 +293,10 @@ contract RentalAgreement is ReentrancyGuard {
             deductedAmount += amountToDeduct;
 
             emit DepositDeducted(landlord, amountToDeduct, reason);
-            (bool sent, ) = payable(landlord).call{value: amountToDeduct}("");
-            require(sent, "Failed to send ETH");
+            // safe call - landlord is immutable and set in constructor
+            // (bool sent, ) = payable(landlord).call{value: amountToDeduct}("");
+            // require(sent, "Failed to send ETH");
+            payable(landlord).transfer(amountToDeduct);
         }
     }
 
@@ -320,8 +330,10 @@ contract RentalAgreement is ReentrancyGuard {
         else 
         {
             emit DepositReturned(msg.sender, updatedDeposit);
-            (bool sent, ) = payable(tenant).call{value: updatedDeposit}("");
-            require(sent, "Failed to send Ether");
+            // safe call - tenant is immutable and set in constructor
+            // (bool sent, ) = payable(tenant).call{value: updatedDeposit}("");
+            // require(sent, "Failed to send Ether");
+            payable(tenant).transfer(updatedDeposit);
         }
     }
 
