@@ -75,6 +75,9 @@ contract RentalAgreement is ReentrancyGuard {
     event PaymentDueDateUpdate(uint256 nextPaymentDate);
     event Debug(uint256 val);
     event ExcesRentReturned(address indexed tenant, uint amount);
+    event AutoPaymentApproved(address indexed tenant);
+    event AutoPaymentRevoked(address indexed tanant);
+    event EarlyTerminationRequestedByLandlord();
 
 
     modifier onlyLandlord() {
@@ -137,10 +140,12 @@ contract RentalAgreement is ReentrancyGuard {
 
     function authorizeAutoPayment() external onlyTenant {
         autoPaymentApproved[msg.sender] = true;
+        emit AutoPaymentApproved(tenant);
     }
 
     function revokeAutoPayment() external onlyTenant {
         autoPaymentApproved[msg.sender] = false;
+        emit AutoPaymentRevoked(tenant);
     }
 
     function processAutoPayment() external onlyLandlord {
@@ -402,6 +407,7 @@ contract RentalAgreement is ReentrancyGuard {
             "Contract must be pending temination"
         );
         earlyTerminationRequestedByLandlord = true;
+        emit EarlyTerminationRequestedByLandlord();
     }
 
     function confirmEarlyTermination() external onlyTenant {

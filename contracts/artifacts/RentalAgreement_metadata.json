@@ -55,6 +55,32 @@
 				"anonymous": false,
 				"inputs": [
 					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "tenant",
+						"type": "address"
+					}
+				],
+				"name": "AutoPaymentApproved",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "tanant",
+						"type": "address"
+					}
+				],
+				"name": "AutoPaymentRevoked",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
 						"indexed": false,
 						"internalType": "uint256",
 						"name": "monthsLeft",
@@ -214,6 +240,12 @@
 					}
 				],
 				"name": "DepositReturned",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [],
+				"name": "EarlyTerminationRequestedByLandlord",
 				"type": "event"
 			},
 			{
@@ -978,11 +1010,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0xc1a0159a4b27694342df4fe19d5347bc119efb109360ddf5c2bcc8ab2d309dab",
+			"keccak256": "0xbb6683e8d14a5f0992e85b2b6162dd28d4715434f3dbc02f0dd7712255ff930c",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://c4f1c79c33e73d6be3de675b1073ddbcc5b28dd572577746ba7dea55787e300b",
-				"dweb:/ipfs/QmfJRp7VJ9pkZpPR7xcuYEh1NGNG8h6U2d1Yy1BhZJkqQT"
+				"bzz-raw://b7f84fbc8f1eb2fc6d2bd5a5f560c966186b1c77b88cd3b2c4be1caef29c58d6",
+				"dweb:/ipfs/QmWJyAqn58f4gimPNeMPyRrqqVt1pa5JUYQCvZnfqs822q"
 			]
 		}
 	},
