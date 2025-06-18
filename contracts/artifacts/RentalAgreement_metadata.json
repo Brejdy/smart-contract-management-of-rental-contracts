@@ -468,9 +468,9 @@
 				"name": "contractEndDate",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -551,9 +551,9 @@
 				"name": "depositStartTime",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -686,9 +686,9 @@
 				"name": "leaseStartTimestamp",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -713,9 +713,9 @@
 				"name": "paymentDate",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -726,9 +726,9 @@
 				"name": "paymentDueDate",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -928,9 +928,9 @@
 				"name": "terminationTimeStamp",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "",
-						"type": "uint256"
+						"type": "uint48"
 					}
 				],
 				"stateMutability": "view",
@@ -1010,11 +1010,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0xbb6683e8d14a5f0992e85b2b6162dd28d4715434f3dbc02f0dd7712255ff930c",
+			"keccak256": "0x55fd6bc96d7fcf97033787b95e1fcdf4b99b91c2a266a3460a56c43bcffc5aa1",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://b7f84fbc8f1eb2fc6d2bd5a5f560c966186b1c77b88cd3b2c4be1caef29c58d6",
-				"dweb:/ipfs/QmWJyAqn58f4gimPNeMPyRrqqVt1pa5JUYQCvZnfqs822q"
+				"bzz-raw://028dd39b9cc043fd345ed71ae1ee836e546b218454cb691905020aa2579b0d9e",
+				"dweb:/ipfs/QmZQ5CDkQsZhFsYGYtTZnEzmYsAoHB6ANfH9mXwFQbEqu3"
 			]
 		}
 	},

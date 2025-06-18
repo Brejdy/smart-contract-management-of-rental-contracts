@@ -18,20 +18,20 @@ contract RentalAgreement is ReentrancyGuard {
     address public stabelcoinAddress;
     AggregatorV3Interface internal priceFeed;
     uint256 public depositBalance;
-    uint256 public depositStartTime;
+    uint48 public depositStartTime;
     uint256 public deductedAmount;
-    uint256 public paymentDueDate;
+    uint48 public paymentDueDate;
     uint256 public warningCount;
     uint256 public amountOwed;
     bool public pendingSevereBreachWarning;
-    uint256 public terminationTimeStamp;
-    uint256 public contractEndDate;
-    uint256 public leaseStartTimestamp;
+    uint48 public terminationTimeStamp;
+    uint48 public contractEndDate;
+    uint48 public leaseStartTimestamp;
     bool public renewalRequested;
     bool public renewalApproved;
     mapping(address => bool) public autoPaymentApproved;
     bool public earlyTerminationRequestedByLandlord;
-    uint256 public paymentDate;
+    uint48 public paymentDate;
 
     enum RentalStatus {
         Active,
@@ -119,15 +119,15 @@ contract RentalAgreement is ReentrancyGuard {
         stabelcoinAddress = _stablecoinAddress;
         priceFeed = AggregatorV3Interface(_priceFeed);
         rentalStatus = RentalStatus.Active;
-        depositStartTime = block.timestamp;
+        depositStartTime = uint48(block.timestamp);
         deductedAmount = 0;
-        paymentDueDate = _paymentDueDate;
+        paymentDueDate = uint48(_paymentDueDate);
         warningCount = 0;
         amountOwed = 0;
         pendingSevereBreachWarning = false;
         terminationTimeStamp = 0;
-        leaseStartTimestamp = block.timestamp;
-        contractEndDate = block.timestamp + 365 days;
+        leaseStartTimestamp = uint48(block.timestamp);
+        contractEndDate = uint48(block.timestamp + 365 days);
 
         emit ContractSigned(landlord, tenant, contractIPFSHash);
     }
@@ -144,27 +144,32 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function revokeAutoPayment() external onlyTenant {
-        autoPaymentApproved[msg.sender] = false;
+        delete autoPaymentApproved[msg.sender];
         emit AutoPaymentRevoked(tenant);
     }
 
     function processAutoPayment() external onlyLandlord {
-        require(autoPaymentApproved[tenant], "Auto payment not authorized");
+        address _tenant = tenant;
+        uint _rentAmount = rentAmount;
+
+        require(autoPaymentApproved[_tenant], "Auto payment not authorized");
         require(rentalStatus == RentalStatus.Active, "Contract is not active");
 
-        uint256 amountToPay = rentAmount;
-        require(IERC20(stabelcoinAddress).transferFrom(tenant, landlord, amountToPay ), "Auto pay failed" );
+        emit RentPaid(_tenant, _rentAmount, true);
+        require(IERC20(stabelcoinAddress).transferFrom(_tenant, landlord, _rentAmount ), "Auto pay failed" );
 
-        paymentHistory.push(PaymentRecord(block.timestamp, amountToPay, true));
-        emit RentPaid(tenant, amountToPay, true);
+        paymentHistory.push(PaymentRecord(block.timestamp, _rentAmount, true));
     }
 
     function checkAndUpdateNextPayment() public onlyParticipants {
+        uint _rentAmount = rentAmount;
+        uint _amountOwed = amountOwed;
+
         uint256 nextPaymentTimestamp = DateUtils.getNextPaymentTimestamp(paymentDate);
 
         if (block.timestamp > nextPaymentTimestamp) {
-            amountOwed += rentAmount;
-            emit PaymentMissed(tenant, rentAmount);
+            _amountOwed = _amountOwed + _rentAmount;
+            emit PaymentMissed(tenant, _rentAmount);
         }
 
         emit PaymentDueDateUpdate(nextPaymentTimestamp);
@@ -178,46 +183,47 @@ contract RentalAgreement is ReentrancyGuard {
 
         checkAndUpdateNextPayment();
 
+        bool _isStabelcoinPayment = isStabelcoinPayment;
+        uint _rentAmount = rentAmount;
+        address _landlord = landlord;
+        uint _amountOwed = amountOwed;
+
         uint256 amountToPay;
-        if (isStabelcoinPayment) {
-            amountToPay = rentAmount;
+        if (_isStabelcoinPayment) {
+            amountToPay = _rentAmount;
             
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, landlord, amountToPay), "Stablecoin payment failed");
+            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, _landlord, amountToPay), "Stablecoin payment failed");
         } 
         else {
             uint256 ethPrice = getLatestPrice();
-            amountToPay = (rentAmount * 1e26) / ethPrice;
+            amountToPay = (_rentAmount * 1e26) / ethPrice;
             require(msg.value >= amountToPay, "Insufficent ETH sent");
 
-            emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            // safe call - landlord is immutable and set in constructor
-            //(bool sent1, ) = payable(landlord).call{value: amountToPay}("");
-            //require(sent1, "Failed to send ETH");
-            payable(landlord).transfer(amountToPay);
+            emit RentPaid(msg.sender, amountToPay, _isStabelcoinPayment);
+            payable(_landlord).transfer(amountToPay);
 
-            if (msg.value > amountToPay) {
+            if (msg.value > amountToPay && _amountOwed <= 0) {
                 uint256 excess = msg.value - amountToPay;
-                // safe call - function protected by modifier onlyTenant
-                // (bool sent2, ) = payable(msg.sender).call{value: excess}("");
-                // require(sent2, "Failed to send ETH back");
+
                 emit ExcesRentReturned(msg.sender, excess);
                 payable(msg.sender).transfer(excess);
             }
         }
 
-        if (amountOwed <= amountToPay) {
-            amountOwed = 0;
+        if (_amountOwed <= amountToPay) {
+            delete amountOwed;
         } else {
-            amountOwed -= amountToPay;
+            amountOwed = _amountOwed - amountToPay;
         }
 
         paymentHistory.push(
-            PaymentRecord(block.timestamp, amountToPay, isStabelcoinPayment)
+            PaymentRecord(block.timestamp, amountToPay, _isStabelcoinPayment)
         );
     }
 
     function checkContractExpiration() external onlyParticipants {
+
         require(rentalStatus == RentalStatus.Active || rentalStatus == RentalStatus.PendingTermination, "Contract is not active");
         uint256 timeLeft = contractEndDate - block.timestamp;
         uint256 daysLeft = timeLeft / 1 days;
@@ -239,22 +245,27 @@ contract RentalAgreement is ReentrancyGuard {
     function confirmWarning() external onlyLandlord {
         require(pendingSevereBreachWarning, "No pending warning to confirm");
         warningCount++;
-        pendingSevereBreachWarning = false;
+        delete pendingSevereBreachWarning;
         emit SevereBreachWarningIssued(tenant, warningCount);
     }
 
     function payDeposit() external payable nonReentrant onlyTenant {
         require(rentalStatus == RentalStatus.Active, "Rental contract is not active");
 
+        bool _isStabelcoinPayment = isStabelcoinPayment;
+        uint _depositAmount = depositAmount;
+        uint _depositBalance = depositBalance;
+        address _stabelcoinAddress = stabelcoinAddress;
+
         uint256 amountToPay;
-        if (isStabelcoinPayment) 
+        if (_isStabelcoinPayment) 
         {
             require(msg.value == 0, "No ETH required for stablecoin deposit");
-            amountToPay = depositAmount;
+            amountToPay = _depositAmount;
 
-            emit DepositPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, address(this), amountToPay), "Stablecoin deposit failed");
-            depositBalance += amountToPay;
+            emit DepositPaid(msg.sender, amountToPay, _isStabelcoinPayment);
+            require(IERC20(_stabelcoinAddress).transferFrom(msg.sender, address(this), amountToPay), "Stablecoin deposit failed");
+            depositBalance = _depositBalance + amountToPay;
         } 
         else 
         {
@@ -265,43 +276,44 @@ contract RentalAgreement is ReentrancyGuard {
             uint256 excessAmount = msg.value - amountToPay;
             if (excessAmount > 0) 
             {
-                emit DepositPaid(msg.sender, amountToPay, isStabelcoinPayment);
-                // safe call - function protected by onlyTenant modifier
-                // (bool sent, ) = payable(msg.sender).call{value: excessAmount}("");
-                // require(sent, "Refund failed");
+                emit DepositPaid(msg.sender, amountToPay, _isStabelcoinPayment);
                 payable(msg.sender).transfer(excessAmount);
             }
 
-            depositBalance += amountToPay;
+            depositBalance = _depositBalance + amountToPay;
         }
     }
 
     function deductFromDeposit(uint256 usdAmount, string memory reason) external nonReentrant onlyLandlord {
+
+        bool _isStabelcoinPayment = isStabelcoinPayment;
+        uint _depositBalance = depositBalance;
+        uint _deductedAmount = deductedAmount;
+        address _stabelcoinAddress = stabelcoinAddress;
+        address _landlord = landlord;
+
         uint256 amountToDeduct;
 
-        if (isStabelcoinPayment) {
+        if (_isStabelcoinPayment) {
             amountToDeduct = usdAmount * 1e18;
-            require(amountToDeduct <= depositBalance, "Deduction exceeds deposit amount");
+            require(amountToDeduct <= _depositBalance, "Deduction exceeds deposit amount");
 
-            depositBalance -= amountToDeduct;
-            deductedAmount += amountToDeduct;
+            depositBalance = _depositBalance - amountToDeduct;
+            deductedAmount = _deductedAmount + amountToDeduct;
 
-            emit DepositDeducted(landlord, amountToDeduct, reason);
-            require(IERC20(stabelcoinAddress).transfer(landlord, amountToDeduct), "Stablecoin transfer failed");
+            emit DepositDeducted(_landlord, amountToDeduct, reason);
+            require(IERC20(_stabelcoinAddress).transfer(_landlord, amountToDeduct), "Stablecoin transfer failed");
         } else {
             uint256 ethPrice = getLatestPrice();
             amountToDeduct = (usdAmount * 1e18 * 1e8) / ethPrice;
 
             require(amountToDeduct <= depositBalance, "Deduction exceeds deposit amount");
 
-            depositBalance -= amountToDeduct;
-            deductedAmount += amountToDeduct;
+            depositBalance = _depositBalance - amountToDeduct;
+            deductedAmount = _deductedAmount + amountToDeduct;
 
-            emit DepositDeducted(landlord, amountToDeduct, reason);
-            // safe call - landlord is immutable and set in constructor
-            // (bool sent, ) = payable(landlord).call{value: amountToDeduct}("");
-            // require(sent, "Failed to send ETH");
-            payable(landlord).transfer(amountToDeduct);
+            emit DepositDeducted(_landlord, amountToDeduct, reason);
+            payable(_landlord).transfer(amountToDeduct);
         }
     }
 
@@ -324,21 +336,20 @@ contract RentalAgreement is ReentrancyGuard {
     function returnDeposit() external nonReentrant onlyLandlord {
         require(rentalStatus == RentalStatus.Terminated, "Contract must ber terminated");
 
+        address _tenant = tenant;
+
         uint256 updatedDeposit = calculateUpdatedDeposit();
-        depositBalance = 0;
+        delete depositBalance;
 
         if (isStabelcoinPayment)
         {
-            emit DepositReturned(msg.sender, updatedDeposit);
-            require(IERC20(stabelcoinAddress).transfer(tenant, updatedDeposit), "Stablecoin payment failed");
+            emit DepositReturned(_tenant, updatedDeposit);
+            require(IERC20(stabelcoinAddress).transfer(_tenant, updatedDeposit), "Stablecoin payment failed");
         }
         else 
         {
-            emit DepositReturned(msg.sender, updatedDeposit);
-            // safe call - tenant is immutable and set in constructor
-            // (bool sent, ) = payable(tenant).call{value: updatedDeposit}("");
-            // require(sent, "Failed to send Ether");
-            payable(tenant).transfer(updatedDeposit);
+            emit DepositReturned(_tenant, updatedDeposit);
+            payable(_tenant).transfer(updatedDeposit);
         }
     }
 
@@ -361,17 +372,17 @@ contract RentalAgreement is ReentrancyGuard {
         require(renewalRequested == true, "Tennant has not asked for renewal");
 
         renewalApproved = true;
-        contractEndDate += 365 days;
+        contractEndDate = contractEndDate + 365 days;
 
-        renewalRequested = false;
-        renewalApproved = false;
+        delete renewalRequested;
+        delete renewalApproved;
 
         emit ContractRenewed(contractEndDate);
     }
 
     function checkTermination() external onlyLandlord {
         if (amountOwed > 3 * rentAmount) {
-            terminationTimeStamp = block.timestamp + 90 days;
+            terminationTimeStamp = uint48(block.timestamp + 90 days);
             rentalStatus = RentalStatus.PendingTermination;
             emit TerminationScheduled(terminationTimeStamp);
         }
@@ -395,7 +406,7 @@ contract RentalAgreement is ReentrancyGuard {
 
     function requestTerminationByTenant() external onlyTenant {
         require(rentalStatus == RentalStatus.Active, "Contract is not Active");
-        terminationTimeStamp = block.timestamp + 90 days;
+        terminationTimeStamp = uint48(block.timestamp + 90 days);
         rentalStatus = RentalStatus.PendingTermination;
 
         emit TerminationScheduled(terminationTimeStamp);
@@ -421,7 +432,7 @@ contract RentalAgreement is ReentrancyGuard {
         );
 
         rentalStatus = RentalStatus.Terminated;
-        earlyTerminationRequestedByLandlord = false;
+        delete earlyTerminationRequestedByLandlord;
 
         emit ContractTerminated(
             msg.sender,
