@@ -619,9 +619,9 @@
 					{
 						"components": [
 							{
-								"internalType": "uint256",
+								"internalType": "uint48",
 								"name": "timestamp",
-								"type": "uint256"
+								"type": "uint48"
 							},
 							{
 								"internalType": "uint256",
@@ -745,9 +745,9 @@
 				"name": "paymentHistory",
 				"outputs": [
 					{
-						"internalType": "uint256",
+						"internalType": "uint48",
 						"name": "timestamp",
-						"type": "uint256"
+						"type": "uint48"
 					},
 					{
 						"internalType": "uint256",
@@ -1010,11 +1010,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x55fd6bc96d7fcf97033787b95e1fcdf4b99b91c2a266a3460a56c43bcffc5aa1",
+			"keccak256": "0x784b7687e5de00d1d788b82a7df12b454130b6bc03108fe7df579a69501feddd",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://028dd39b9cc043fd345ed71ae1ee836e546b218454cb691905020aa2579b0d9e",
-				"dweb:/ipfs/QmZQ5CDkQsZhFsYGYtTZnEzmYsAoHB6ANfH9mXwFQbEqu3"
+				"bzz-raw://7fc5cb5e0824a54359013cf23bdccb3a518e243190107016fc183de15822203d",
+				"dweb:/ipfs/QmWpG2tc6tt7Tgyc9t4rfMT6DGhN6zeveg6CdJdcGMSFUZ"
 			]
 		}
 	},

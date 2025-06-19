@@ -11,14 +11,14 @@ contract RentalAgreement is ReentrancyGuard {
 
     address public immutable landlord;
     address public immutable tenant;
-    uint256 public rentAmount;
-    uint256 public depositAmount;
+    uint256 public immutable rentAmount;
+    uint256 public immutable depositAmount;
     string public contractIPFSHash;
-    bool public isStabelcoinPayment;
-    address public stabelcoinAddress;
-    AggregatorV3Interface internal priceFeed;
+    bool public immutable isStabelcoinPayment;
+    address public immutable stabelcoinAddress;
+    AggregatorV3Interface internal immutable priceFeed;
     uint256 public depositBalance;
-    uint48 public depositStartTime;
+    uint48 public immutable depositStartTime;
     uint256 public deductedAmount;
     uint48 public paymentDueDate;
     uint256 public warningCount;
@@ -41,7 +41,7 @@ contract RentalAgreement is ReentrancyGuard {
     RentalStatus public rentalStatus;
 
     struct PaymentRecord {
-        uint256 timestamp;
+        uint48 timestamp;
         uint256 amount;
         bool stablecoin;
     }
@@ -158,7 +158,7 @@ contract RentalAgreement is ReentrancyGuard {
         emit RentPaid(_tenant, _rentAmount, true);
         require(IERC20(stabelcoinAddress).transferFrom(_tenant, landlord, _rentAmount ), "Auto pay failed" );
 
-        paymentHistory.push(PaymentRecord(block.timestamp, _rentAmount, true));
+        paymentHistory.push(PaymentRecord(uint48(block.timestamp), _rentAmount, true));
     }
 
     function checkAndUpdateNextPayment() public onlyParticipants {
@@ -218,7 +218,7 @@ contract RentalAgreement is ReentrancyGuard {
         }
 
         paymentHistory.push(
-            PaymentRecord(block.timestamp, amountToPay, _isStabelcoinPayment)
+            PaymentRecord(uint48(block.timestamp), amountToPay, _isStabelcoinPayment)
         );
     }
 
@@ -369,7 +369,7 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function approveContractRenewal() external onlyLandlord {
-        require(renewalRequested == true, "Tennant has not asked for renewal");
+        require(renewalRequested, "Tennant has not asked for renewal");
 
         renewalApproved = true;
         contractEndDate = contractEndDate + 365 days;
