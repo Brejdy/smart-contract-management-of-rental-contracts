@@ -157,7 +157,7 @@ contract RentalAgreement is ReentrancyGuard {
 
         emit RentPaid(_tenant, _rentAmount, true);
         require(IERC20(stabelcoinAddress).transferFrom(_tenant, landlord, _rentAmount ), "Auto pay failed" );
-
+        
         paymentHistory.push(PaymentRecord(uint48(block.timestamp), _rentAmount, true));
     }
 
