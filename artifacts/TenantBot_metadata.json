@@ -1,0 +1,166 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "spender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "approveToken",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "rentalAddress",
+						"type": "address"
+					}
+				],
+				"name": "authorize",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "rentalAddr",
+						"type": "address"
+					}
+				],
+				"name": "payDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "rentalAddr",
+						"type": "address"
+					}
+				],
+				"name": "payRent",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/TenantBot.sol": "TenantBot"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/security/ReentrancyGuard.sol": {
+			"keccak256": "0xa535a5df777d44e945dd24aa43a11e44b024140fc340ad0dfe42acf4002aade1",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://41319e7f621f2dc3733511332c4fd032f8e32ad2aa7fd6f665c19741d9941a34",
+				"dweb:/ipfs/QmcYR3bd862GD1Bc7jwrU9bGxrhUu5na1oP964bDCu2id1"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0xe06a3f08a987af6ad2e1c1e774405d4fe08f1694b67517438b467cecf0da0ef7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://df6f0c459663c9858b6cba2cda1d14a7d05a985bed6d2de72bd8e78c25ee79db",
+				"dweb:/ipfs/QmeTTxZ7qVk9rjEv2R4CpCwdf8UMCcRqDNMvzNxHc3Fnn9"
+			]
+		},
+		"contracts/AggregatorV3Interface.sol": {
+			"keccak256": "0x811ac11fd40e3feb08945198cd66dda1fde8612e64b692996df096a7be365416",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9a41feeb70e654e628074c67423a3a05e8758a19ba89a791ef3ee7755085f14b",
+				"dweb:/ipfs/QmTKkypk6j9Dm5oQFh4XkN9fq4eVkb9x46sqdA95AowA8k"
+			]
+		},
+		"contracts/DateUtils.sol": {
+			"keccak256": "0xdb4fe7b3b50aa6317cb577ebe48de21b1cb97222baeb37f06b35da78d6aac4b7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://77c550ae30c844cc47d859cd9bb30457e8142a3a1be50a27525704220487e5bc",
+				"dweb:/ipfs/QmNjxfr6sNAsvNuW6qVe9StWuXR4uwWADPzhECPd5Ar1jX"
+			]
+		},
+		"contracts/RentalAgreement.sol": {
+			"keccak256": "0xd95fb7f10af051fcbeccdcf9cab6d12fb707126bb02b416a6a597b39962f4142",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d60154d6bbc61c145c53035254bfb2130dcf86b9b4413cc57a98c423c0835659",
+				"dweb:/ipfs/QmVE42qs5E5VTzLUdAgkdBTR5Xwt9T5rsb3QoSRbvHCXaV"
+			]
+		},
+		"contracts/TenantBot.sol": {
+			"keccak256": "0x527698a42060f61b379881dad3fb116c1342398b8ca272fa890b6944705e8f35",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://7e0839c09711a409d174c4201aefa014bcf3e3eeb7b3d9fdbbfee154fa608284",
+				"dweb:/ipfs/QmVWQQy56DuxmouL1z7UgxgBWnt9BdwWYDzEGEWzyQe754"
+			]
+		}
+	},
+	"version": 1
+}

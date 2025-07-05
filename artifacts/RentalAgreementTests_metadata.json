@@ -1,0 +1,191 @@
+{
+	"compiler": {
+		"version": "0.8.30+commit.73712a01"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"name": "beforeAll",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testApproveAutoPayment",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testDeductFromDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testInitState",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testPayDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testPayRent",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "testReturnDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"tests/RentalAgreement_test.sol": "RentalAgreementTests"
+		},
+		"evmVersion": "prague",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
+			"keccak256": "0x880da465c203cec76b10d72dbd87c80f387df4102274f23eea1f9c9b0918792b",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://399594cd8bb0143bc9e55e0f1d071d0d8c850a394fb7a319d50edd55d9ed822b",
+				"dweb:/ipfs/QmbPZzgtT6LEm9CMqWfagQFwETbV1ztpECBB1DtQHrKiRz"
+			]
+		},
+		"@openzeppelin/contracts/security/ReentrancyGuard.sol": {
+			"keccak256": "0xa535a5df777d44e945dd24aa43a11e44b024140fc340ad0dfe42acf4002aade1",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://41319e7f621f2dc3733511332c4fd032f8e32ad2aa7fd6f665c19741d9941a34",
+				"dweb:/ipfs/QmcYR3bd862GD1Bc7jwrU9bGxrhUu5na1oP964bDCu2id1"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+			"keccak256": "0x41f6b3b9e030561e7896dbef372b499cc8d418a80c3884a4d65a68f2fdc7493a",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://80b0992a11b2fd1f75ced2971696d07bbd1d19ce6761dd50d8b6d48aa435f42a",
+				"dweb:/ipfs/QmZDe5xd2gXHjVEjv9t8C1KQ68K5T8qFwdinwQgmP3rF3x"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0xe06a3f08a987af6ad2e1c1e774405d4fe08f1694b67517438b467cecf0da0ef7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://df6f0c459663c9858b6cba2cda1d14a7d05a985bed6d2de72bd8e78c25ee79db",
+				"dweb:/ipfs/QmeTTxZ7qVk9rjEv2R4CpCwdf8UMCcRqDNMvzNxHc3Fnn9"
+			]
+		},
+		"@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+			"keccak256": "0x70f2f713b13b7ce4610bcd0ac9fec0f3cc43693b043abcb8dc40a42a726eb330",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c13d13304ac79a83ab1c30168967d19e2203342ebbd6a9bbce4db7550522dcbf",
+				"dweb:/ipfs/QmeN5jKMN2vw5bhacr6tkg78afbTTZUeaacNHqjWt4Ew1r"
+			]
+		},
+		"@openzeppelin/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"contracts/AggregatorV3Interface.sol": {
+			"keccak256": "0x811ac11fd40e3feb08945198cd66dda1fde8612e64b692996df096a7be365416",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9a41feeb70e654e628074c67423a3a05e8758a19ba89a791ef3ee7755085f14b",
+				"dweb:/ipfs/QmTKkypk6j9Dm5oQFh4XkN9fq4eVkb9x46sqdA95AowA8k"
+			]
+		},
+		"contracts/DateUtils.sol": {
+			"keccak256": "0xdb4fe7b3b50aa6317cb577ebe48de21b1cb97222baeb37f06b35da78d6aac4b7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://77c550ae30c844cc47d859cd9bb30457e8142a3a1be50a27525704220487e5bc",
+				"dweb:/ipfs/QmNjxfr6sNAsvNuW6qVe9StWuXR4uwWADPzhECPd5Ar1jX"
+			]
+		},
+		"contracts/MockERC20.sol": {
+			"keccak256": "0x7084af1b9032c93575018a348115167615f61e8d8fa79b21ec61879825e97e0e",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9ea6cd59b592cf9b555adc8c71b51ff520e2ba296f1ac9879853efb7e5b0b5b1",
+				"dweb:/ipfs/QmeC4LnX3M43xknKT3KjXPkckYfeUKyZBMWN3bjUC9giqA"
+			]
+		},
+		"contracts/RentalAgreement.sol": {
+			"keccak256": "0xd95fb7f10af051fcbeccdcf9cab6d12fb707126bb02b416a6a597b39962f4142",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d60154d6bbc61c145c53035254bfb2130dcf86b9b4413cc57a98c423c0835659",
+				"dweb:/ipfs/QmVE42qs5E5VTzLUdAgkdBTR5Xwt9T5rsb3QoSRbvHCXaV"
+			]
+		},
+		"contracts/TenantBot.sol": {
+			"keccak256": "0xcbc109dcd9539647b1c0b3fc4ee031c61a4c434c0e25297e94cc4182d7064cf9",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://63b004285b30f342fa4ca95b1d190dbec656f086717016e7ee813c64b15a7695",
+				"dweb:/ipfs/QmTobBpeQNniXG5u7qLmmMztSRQAvvEx4fNbzjbaWNCDYW"
+			]
+		},
+		"remix_tests.sol": {
+			"keccak256": "0xe2783cdc204cba8c72494119339f1d90f9022b15d6c718c668b7f097d8e29787",
+			"license": "GPL-3.0",
+			"urls": [
+				"bzz-raw://bb6a22e64c7f16bcaab63b1c1a1b269d5be8a6d37bdd9dec1718477ab916b18e",
+				"dweb:/ipfs/QmdkW1tT5iadBvaHMCoskhDGZKnfdg8o1D9CcoQYtdJet7"
+			]
+		},
+		"tests/RentalAgreement_test.sol": {
+			"keccak256": "0x48e21ef3c36f4aef4fcf81428e24f8b42f089018ff7df5bd63743970dc621a13",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://970790ab3a84d1418500e467116f963d336e14e167fcecb13af29709e5cefb94",
+				"dweb:/ipfs/QmSRKSdtwRgSYmWtVpbLjEAoS9TsXDpfXcSep3c9s3byzo"
+			]
+		}
+	},
+	"version": 1
+}
