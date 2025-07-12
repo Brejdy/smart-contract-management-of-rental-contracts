@@ -19,6 +19,29 @@
 					},
 					{
 						"internalType": "address",
+						"name": "rentalAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "approveAndPayRent",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
 						"name": "spender",
 						"type": "address"
 					},
@@ -68,19 +91,6 @@
 					}
 				],
 				"name": "payDeposit",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "rentalAddr",
-						"type": "address"
-					}
-				],
-				"name": "payRent",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -146,19 +156,19 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0xd95fb7f10af051fcbeccdcf9cab6d12fb707126bb02b416a6a597b39962f4142",
+			"keccak256": "0x65029dd1909fa6edca0702971a83247a249b2c3ff15cadfa60057be38a8f2ef6",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://d60154d6bbc61c145c53035254bfb2130dcf86b9b4413cc57a98c423c0835659",
-				"dweb:/ipfs/QmVE42qs5E5VTzLUdAgkdBTR5Xwt9T5rsb3QoSRbvHCXaV"
+				"bzz-raw://352fb57be1c424768e784528883a807c55a5be363ce2d028f76a6b99a3ce647b",
+				"dweb:/ipfs/QmTd13yZRATfLTKNYMbK5BbAdYFsKrwFjUaVhMxKQjqzsU"
 			]
 		},
 		"contracts/TenantBot.sol": {
-			"keccak256": "0x527698a42060f61b379881dad3fb116c1342398b8ca272fa890b6944705e8f35",
+			"keccak256": "0xb2bded92fbafd756c47e7e74117bdc0a1a110d89a7de60ff45dfcd034b5bb9cb",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://7e0839c09711a409d174c4201aefa014bcf3e3eeb7b3d9fdbbfee154fa608284",
-				"dweb:/ipfs/QmVWQQy56DuxmouL1z7UgxgBWnt9BdwWYDzEGEWzyQe754"
+				"bzz-raw://bc99e7a1396eb9b6cbc6e71ed32119c24d669fb0ddebe528169fb05fbce82860",
+				"dweb:/ipfs/QmXSbxbEwSjT31TZ1P7YgwGoH7GLndBgoRNqo793DyZh1T"
 			]
 		}
 	},

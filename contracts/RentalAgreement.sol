@@ -193,7 +193,7 @@ contract RentalAgreement is ReentrancyGuard {
             amountToPay = _rentAmount;
             
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, _landlord, amountToPay), "Stablecoin payment failed");
+            require(IERC20(stabelcoinAddress).transferFrom(tenant, _landlord, amountToPay), "Stablecoin payment failed");
         } 
         else {
             uint256 ethPrice = getLatestPrice();
