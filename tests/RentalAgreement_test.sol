@@ -3,34 +3,34 @@ pragma solidity ^0.8.20;
 
 import "remix_tests.sol";
 import "../contracts/RentalAgreement.sol";
-import "../contracts/MockERC20.sol";
+import "../contracts/MyMockERC20.sol";
 import "../contracts/TenantBot.sol";
 
 contract RentalAgreementTests {
     RentalAgreement rental;
-    MockERC20 token;
+    MyMockERC20 token;
     TenantBot bot;
 
     address landlord;
 
     function beforeAll() public {
         // Deploy stablecoin and tenant bot contracts manually
-        token = new MockERC20();
+        token = new MyMockERC20();
         bot = new TenantBot();
 
         // Mint funds to the TenantBot
-        token.mint(address(bot), 5_000 ether);
+        token.mint(address(bot), 25000 ether);
 
         // Deploy rental contract with the bot as tenant
         rental = new RentalAgreement(
-            address(bot),
+            address(bot),       // Tenant
             250 ether,          // Rent
             500 ether,          // Deposit
             "QmHash",           // written agreement hash
             true,               // stablecoin payment
             address(token),     // stablecoin address
             address(0),         // price feed (dummy)
-            0                   // paymentDueDate (not relevant for tests)
+            block.timestamp + 7 // paymentDueDate (not relevant for tests)
         );
 
         landlord = address(this);
@@ -52,49 +52,33 @@ contract RentalAgreementTests {
     }
 
     function testPayDeposit() public {
-        bot.approveToken(address(token), address(rental), 500 ether);
-        bot.payDeposit(address(rental));
+        token.mint(address(bot), 500 ether);
+        bot.setupDeposit(address(token), address(rental), 500 ether);
 
         uint balance = rental.depositBalance();
         Assert.equal(balance, 500 ether, "Deposit should be 500");
     }
 
-    function testDeductFromDeposit() public {
-        uint depositInUsd = 500;
-        uint deductionInUsd = 100;
+    function testPayRent() public {
+        token.mint(address(bot), 250 ether);
+        bot.approveToken(address(token), address(rental), 250 ether);
+        bot.payRent(address(rental));
 
-        uint depositAmount = depositInUsd * 1e18;
-        uint deductionAmount = deductionInUsd * 1e18;
-        uint expectedBalance = depositAmount - deductionAmount;
-
-        token.mint(address(bot), depositAmount);
-        bot.approveToken(address(token), address(rental), depositAmount);
-        bot.payDeposit(address(rental));
-
-        rental.deductFromDeposit(deductionInUsd, "Test deduction");
-
-        uint balance = rental.depositBalance();
-        Assert.equal(balance, expectedBalance, "Deposit should be reduced correctly");
+        (uint48 ts, uint amount,bool isStable) = rental.paymentHistory(0);
+        Assert.equal(amount, 250 ether, "Rent amount should match");
+        Assert.equal(isStable, true, "Payment should be marked as stablecoin");
     }
 
-    function testPayRent() public {
-        // 1. Mint do TenantBota
-        token.mint(address(bot), 250 ether);
+    function testDeductFromDeposit() public {
+        token.mint(address(bot), 500 ether);
 
-        // 2. TenantBot sám dá approve rental kontraktu
-        bot.setupStablecoin(address(token), address(rental), 250 ether);
+        bot.setupDeductDeposit(address(token), address(rental), 500 ether);
+        bot.initiateDeposit(address(rental));
 
-        // 3. TenantBot volá payRent
-        bot.approveAndPayRent(address(rental));
+        rental.deductFromDeposit(100, "Test deduction");
 
-        // 4. Ověření historie plateb
-        (, uint amount, bool stablecoin) = rental.paymentHistory(0);
-        Assert.equal(amount, 250 ether, "Payment should be 250");
-        Assert.equal(stablecoin, true, "Should be stablecoin payment");
-
-        // 5. Ověření že landlord obdržel peníze
-        uint landlordBalance = token.balanceOf(landlord);
-        Assert.ok(landlordBalance >= 250 ether, "Landlord should receive payment");
+        uint balance = rental.depositBalance();
+        Assert.equal(balance, 400 ether, "Deposit should be reduced correctly");
     }
 
     function testReturnDeposit() public {

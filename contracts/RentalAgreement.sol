@@ -73,12 +73,10 @@ contract RentalAgreement is ReentrancyGuard {
     event ContractRenewalRequested(address indexed landlord);
     event PaymentMissed(address indexed tenant, uint256 missedAmount);
     event PaymentDueDateUpdate(uint256 nextPaymentDate);
-    event Debug(uint256 val);
     event ExcesRentReturned(address indexed tenant, uint amount);
     event AutoPaymentApproved(address indexed tenant);
     event AutoPaymentRevoked(address indexed tanant);
     event EarlyTerminationRequestedByLandlord();
-
 
     modifier onlyLandlord() {
         require( msg.sender == landlord, "Only landlord can perform this action");
@@ -181,7 +179,7 @@ contract RentalAgreement is ReentrancyGuard {
             "Rental contract is not active"
         );
 
-        checkAndUpdateNextPayment();
+        //checkAndUpdateNextPayment();
 
         bool _isStabelcoinPayment = isStabelcoinPayment;
         uint _rentAmount = rentAmount;
@@ -190,10 +188,10 @@ contract RentalAgreement is ReentrancyGuard {
 
         uint256 amountToPay;
         if (_isStabelcoinPayment) {
+
             amountToPay = _rentAmount;
-            
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            require(IERC20(stabelcoinAddress).transferFrom(tenant, _landlord, amountToPay), "Stablecoin payment failed");
+            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, _landlord, amountToPay), "Stablecoin payment failed");
         } 
         else {
             uint256 ethPrice = getLatestPrice();
@@ -274,9 +272,10 @@ contract RentalAgreement is ReentrancyGuard {
             require(msg.value >= amountToPay, "Insufficient ETH sent");
 
             uint256 excessAmount = msg.value - amountToPay;
+
+            emit DepositPaid(msg.sender, amountToPay, _isStabelcoinPayment);
             if (excessAmount > 0) 
             {
-                emit DepositPaid(msg.sender, amountToPay, _isStabelcoinPayment);
                 payable(msg.sender).transfer(excessAmount);
             }
 

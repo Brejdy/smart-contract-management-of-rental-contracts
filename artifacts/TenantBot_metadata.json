@@ -28,7 +28,7 @@
 						"type": "uint256"
 					}
 				],
-				"name": "approveAndPayRent",
+				"name": "approveForRental",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -70,6 +70,19 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "rentalAddr",
+						"type": "address"
+					}
+				],
+				"name": "initiateDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "owner",
 				"outputs": [
@@ -91,6 +104,42 @@
 					}
 				],
 				"name": "payDeposit",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "rental",
+						"type": "address"
+					}
+				],
+				"name": "payRent",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "tokenAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "rentalAddr",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "setupDeposit",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -156,19 +205,19 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0x65029dd1909fa6edca0702971a83247a249b2c3ff15cadfa60057be38a8f2ef6",
+			"keccak256": "0x2538dba91ef77b297d786c65234e34c89d7842561a223da8e14a6824f4fd345f",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://352fb57be1c424768e784528883a807c55a5be363ce2d028f76a6b99a3ce647b",
-				"dweb:/ipfs/QmTd13yZRATfLTKNYMbK5BbAdYFsKrwFjUaVhMxKQjqzsU"
+				"bzz-raw://fb7f24e6b3844c16f994037426c5a6d1c7e5c7d8acffe30733585a251dd184b2",
+				"dweb:/ipfs/QmT63Uj7fkuXzgJn38VqfYBRdVYuYb2neWLbLynsgkoiwe"
 			]
 		},
 		"contracts/TenantBot.sol": {
-			"keccak256": "0xb2bded92fbafd756c47e7e74117bdc0a1a110d89a7de60ff45dfcd034b5bb9cb",
+			"keccak256": "0x2c6a4ac3acb031f164645cd7206cd1edf858bd66bcfcc726ee65c753d57f4931",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://bc99e7a1396eb9b6cbc6e71ed32119c24d669fb0ddebe528169fb05fbce82860",
-				"dweb:/ipfs/QmXSbxbEwSjT31TZ1P7YgwGoH7GLndBgoRNqo793DyZh1T"
+				"bzz-raw://8065f6d46d0cb27c78cd5e45dc273c2b45c04c310501bbcfe0bf46af491a9ec4",
+				"dweb:/ipfs/QmXtWRw7DAtWkwetSdrRu51DWFHQn6cL4dJH57XL5Sb6kK"
 			]
 		}
 	},

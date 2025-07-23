@@ -19,16 +19,30 @@ contract TenantBot {
         IERC20(tokenAddr).approve(spender, amount); 
     }
 
-    // přidáno: tenant sám provede approve rentalu
-    function setupStablecoin(address tokenAddr, address rentalAddr, uint256 amount) external {
-        IERC20(tokenAddr).approve(rentalAddr, amount);
-    }
-
     function payDeposit(address rentalAddr) external {
         RentalAgreement(rentalAddr).payDeposit();
     }
 
-    function approveAndPayRent(address rentalAddr) external {
-        RentalAgreement(rentalAddr).payRent();
+    function setupDeposit(address tokenAddr, address rentalAddr, uint256 amount) external {
+        IERC20(tokenAddr).approve(rentalAddr, amount);
+        RentalAgreement(rentalAddr).payDeposit();
+    }
+
+    function setupDeductDeposit(address tokenAddr, address rentalAddr, uint256 amount) external {
+        IERC20(tokenAddr).approve(rentalAddr, amount);
+    }
+
+    function initiateDeposit(address rentalAddr) external {
+        RentalAgreement(rentalAddr).payDeposit();
+    }
+
+    function payRent(address rental) external {
+        RentalAgreement(rental).payRent();
+    }
+
+    function approveForRental(address tokenAddr, address rentalAddr, uint256 amount) external {
+        IERC20 token = IERC20(tokenAddr);
+        bool success = token.approve(rentalAddr, amount);
+        require(success, "ERC20 approve failed");
     }
 }

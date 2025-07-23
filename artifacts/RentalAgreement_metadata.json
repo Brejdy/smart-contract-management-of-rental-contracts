@@ -164,19 +164,6 @@
 				"anonymous": false,
 				"inputs": [
 					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "val",
-						"type": "uint256"
-					}
-				],
-				"name": "Debug",
-				"type": "event"
-			},
-			{
-				"anonymous": false,
-				"inputs": [
-					{
 						"indexed": true,
 						"internalType": "address",
 						"name": "landlord",
@@ -1010,11 +997,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0xd95fb7f10af051fcbeccdcf9cab6d12fb707126bb02b416a6a597b39962f4142",
+			"keccak256": "0x2538dba91ef77b297d786c65234e34c89d7842561a223da8e14a6824f4fd345f",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://d60154d6bbc61c145c53035254bfb2130dcf86b9b4413cc57a98c423c0835659",
-				"dweb:/ipfs/QmVE42qs5E5VTzLUdAgkdBTR5Xwt9T5rsb3QoSRbvHCXaV"
+				"bzz-raw://fb7f24e6b3844c16f994037426c5a6d1c7e5c7d8acffe30733585a251dd184b2",
+				"dweb:/ipfs/QmT63Uj7fkuXzgJn38VqfYBRdVYuYb2neWLbLynsgkoiwe"
 			]
 		}
 	},
