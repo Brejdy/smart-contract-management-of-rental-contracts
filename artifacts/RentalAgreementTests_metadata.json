@@ -6,6 +6,38 @@
 	"output": {
 		"abi": [
 			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "string",
+						"name": "label",
+						"type": "string"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					}
+				],
+				"name": "Debug",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "balance",
+						"type": "uint256"
+					}
+				],
+				"name": "log_uint",
+				"type": "event"
+			},
+			{
 				"inputs": [],
 				"name": "beforeAll",
 				"outputs": [],
@@ -155,11 +187,11 @@
 			]
 		},
 		"contracts/RentalAgreement.sol": {
-			"keccak256": "0xae093b447baf787558e29f1b70f0c063fb5c0164b248a9724cd3306131df4ad7",
+			"keccak256": "0x3cabbb18122c2ec35119e66bf1452889f3c31c0f68d4e0a6345bab30cd04c775",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://aa24c207eadee4bfb8f062beed9d15ce6e60526251eba289f65619084d9b8b53",
-				"dweb:/ipfs/QmQ3fiGo7163CoGMf5oZqGDznjYH7gaMBVJwHQdLtEjrDm"
+				"bzz-raw://aca04f568f956d8a66da4cbf1bbc1c3c5b13228cee38f5b362d69fb37a6109d5",
+				"dweb:/ipfs/QmZEip3ERoCAjJBQ1xHYjvw2o8jxTiGtmcXh2SZdDzmxCs"
 			]
 		},
 		"contracts/TenantBot.sol": {
@@ -179,11 +211,11 @@
 			]
 		},
 		"tests/RentalAgreement_test.sol": {
-			"keccak256": "0x6f7a7e132e297d867d04a5f556039e913c37e598ff5fbe0e8e7a15b784f6905f",
+			"keccak256": "0x401e102d292142886f0a6d092301ba90505ab6b277e8015fea9d3015e651fa0d",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://619f5fd80d58e0d12b7309aaba22589e8d83e680665c36cecdcbb822b28ba115",
-				"dweb:/ipfs/QmRcpQoX5X63xpMmhnM7X7RW9yb5TPAHsDS5H8aUqmCo9c"
+				"bzz-raw://4cb6c775390761045eeb5296418c4d72f3b0fdb30399e334cd58dc98f049d696",
+				"dweb:/ipfs/QmafKrNhPFPsPRsn3227DGMgbf9LYU5gJ8vUDsyuTPcGTi"
 			]
 		}
 	},

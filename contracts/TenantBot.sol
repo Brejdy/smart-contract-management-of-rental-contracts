@@ -28,14 +28,6 @@ contract TenantBot {
         RentalAgreement(rentalAddr).payDeposit();
     }
 
-    function setupDeductDeposit(address tokenAddr, address rentalAddr, uint256 amount) external {
-        IERC20(tokenAddr).approve(rentalAddr, amount);
-    }
-
-    function initiateDeposit(address rentalAddr) external {
-        RentalAgreement(rentalAddr).payDeposit();
-    }
-
     function payRent(address rental) external {
         RentalAgreement(rental).payRent();
     }

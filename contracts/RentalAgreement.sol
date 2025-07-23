@@ -333,12 +333,12 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function returnDeposit() external nonReentrant onlyLandlord {
-        require(rentalStatus == RentalStatus.Terminated, "Contract must ber terminated");
+        require(rentalStatus == RentalStatus.Terminated, "Contract must be terminated");
 
         address _tenant = tenant;
 
         uint256 updatedDeposit = calculateUpdatedDeposit();
-        delete depositBalance;
+        depositBalance = 0;
 
         if (isStabelcoinPayment)
         {

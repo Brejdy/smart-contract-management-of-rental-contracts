@@ -11,6 +11,9 @@ contract RentalAgreementTests {
     MyMockERC20 token;
     TenantBot bot;
 
+    event log_uint(uint balance);
+    event Debug(string label, uint value);
+
     address landlord;
 
     function beforeAll() public {
@@ -69,27 +72,51 @@ contract RentalAgreementTests {
         Assert.equal(isStable, true, "Payment should be marked as stablecoin");
     }
 
+    function testReturnDeposit() public {
+        token.mint(address(bot), 500 ether);
+        emit Debug("mint done", 1);
+
+        bot.setupDeposit(address(token), address(rental), 500 ether);
+        emit Debug("setupDeposit done", 2);
+
+        uint balanceBefore = rental.depositBalance();
+        emit Debug("depositBalance before return", balanceBefore);
+        Assert.equal(balanceBefore, 500 ether, "Deposit should be 500 before return");
+
+        rental.terminateContract("any");
+        emit Debug("terminateContract called", 3);
+
+        uint status = uint(rental.rentalStatus());
+        emit Debug("rentalStatus", status);
+        Assert.equal(status, 2, "Rental status should be Terminated");
+
+        rental.returnDeposit();
+        emit Debug("returnDeposit called", 4);
+
+        uint balanceAfter = rental.depositBalance();
+        emit Debug("depositBalance after return", balanceAfter);
+        Assert.equal(balanceAfter, 0, "Deposit should be zero after return");
+    }
+
     function testDeductFromDeposit() public {
         token.mint(address(bot), 500 ether);
 
-        bot.setupDeductDeposit(address(token), address(rental), 500 ether);
-        bot.initiateDeposit(address(rental));
+        // Před schválením a zaplacením depozitu
+        uint balanceBefore = rental.depositBalance();
+        emit log_uint(balanceBefore); // očekáváme 0
+
+        bot.setupDeposit(address(token), address(rental), 500 ether);
+
+        // Po zaplacení depozitu
+        uint balanceAfterDeposit = rental.depositBalance();
+        emit log_uint(balanceAfterDeposit); // očekáváme 500 ether
 
         rental.deductFromDeposit(100, "Test deduction");
 
-        uint balance = rental.depositBalance();
-        Assert.equal(balance, 400 ether, "Deposit should be reduced correctly");
-    }
+        // Po odečtení
+        uint balanceAfterDeduction = rental.depositBalance();
+        emit log_uint(balanceAfterDeduction); // očekáváme 400 ether
 
-    function testReturnDeposit() public {
-        token.mint(address(bot), 500 ether);
-        bot.approveToken(address(token), address(rental), 500 ether);
-        bot.payDeposit(address(rental));
-
-        rental.terminateContract("any");
-        rental.returnDeposit();
-
-        uint balance = rental.depositBalance();
-        Assert.equal(balance, 0, "Deposit should be zero after return");
+        Assert.equal(balanceAfterDeduction, 400 ether, "Deposit should be reduced correctly");
     }
 }
