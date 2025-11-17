@@ -1,0 +1,68 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 30px;
+}
+label {
+    display: block;
+    margin-top: 10px;
+}
+input, select {
+    width: 300px;
+    padding: 8px;
+}
+button {
+    margin-top: 20px;
+    padding: 10px 20px;
+}
+nav {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+}
+nav a {
+    margin-right: 20px;
+    text-decoration: none;
+    color: black;
+}
+h1 {
+    display:flex;
+    justify-content: center;
+    margin-top: 50px;
+}
+#contractAddress {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    text-align: center;
+    margin-top: 15px;
+    color: black;
+}
+.bodydiv {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+.deployForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 30px;
+}
+.contract-details {
+  display: flex;
+  justify-content: center;
+  gap: 50px;
+  width: 100%;
+  max-width: 1000px;
+}
+.contract-info,
+.contract-actions {
+  flex: 1;
+  text-align: center;
+}
+
+
+

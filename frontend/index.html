@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rental Agreement</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+</head>
+<body>
+  <nav>
+    <a href="index.html">New contract</a>
+    <a href="contracts.html">Existing contracts</a>
+  </nav>
+
+  <h1>New lease agreement</h1>
+  <div class="bodydiv"> 
+    <form class="deployForm" id="deployForm">
+      <label for="tenant">Tenant address:</label>
+      <input type="text" id="tenant" required />
+
+      <label for="arbiter">Arbiter address:</label>
+      <input type="text" id="arbiter" required />
+
+      <label for="rent">Rent amount (in USD):</label>
+      <input type="number" step="0.01" id="rent" required />
+
+      <label for="deposit">Deposit amount (in USD):</label>
+      <input type="number" step="0.01" id="deposit" required />
+
+      <label for="contractHash">IPFS hash of rental agreement:</label>
+      <input type="text" id="contractHash" required />
+
+      <small>
+        Don’t have the hash yet? Upload your contract at 
+        <a href="https://web3.storage/" target="_blank">web3.storage</a> or 
+        <a href="https://pinata.cloud/" target="_blank">pinata.cloud</a>.
+      </small>
+
+      <label for="currency">Payment type:</label>
+      <select id="currency">
+       <option value="eth">ETH</option>
+        <option value="usdc">USDC</option>
+      </select>
+
+      <label for="paymentDay">Day of month for rent payment:</label>
+      <input type="number" id="paymentDay" min="1" max="28" required />
+
+      <button type="submit">Deploy contract</button>
+      <p id="contractAddress"></p>
+    </form>
+    
+  </div>
+  <script type="module" src="js/scripts.js"></script>
+</body>
+</html>
