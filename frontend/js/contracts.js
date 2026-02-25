@@ -91,6 +91,15 @@ window.addEventListener("DOMContentLoaded", async () => {
         lines.push(`Auto-payment approved.`);
       } else if (name === "AutoPaymentRevoked") {
         lines.push(`Auto-payment revoked.`);
+      } else if (name === "AutoPayEthFunded") {
+        const [, amount] = args;
+        lines.push(`Auto-pay ETH funded: ${humanAmount(amount)} ETH`);
+      } else if (name === "AutoPayEthWithdrawn") {
+        const [, amount] = args;
+        lines.push(`Auto-pay ETH withdrawn: ${humanAmount(amount)} ETH`);
+      } else if (name === "AutoPaymentProcessed") {
+        const [, amount, stable, periodKey] = args;
+        lines.push(`AutoPaymentProcessed: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} | period=${periodKey.toString()}`);
       } else {
         // fallback – generický výpis argumentů
         const pretty = Object.entries(args)
@@ -152,7 +161,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       const contract = new ethers.Contract(contractAddress, abi, signer);
       window.__lastLoadedContract = contract; // aby summarizeEvents mělo iface
 
-      const [landlord, tenant, arbiter] = await Promise.all([contract.landlord(), contract.tenant()]);
+      console.log(contract);
+
+      const [landlord, tenant, arbiter] = await Promise.all([contract.landlord(), contract.tenant(), contract.arbiter()]);
 
       let role = "Viewer";
       if (userAddress === landlord.toLowerCase()) role = "Landlord";
@@ -183,6 +194,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         depositBalance,
         currentPrice,
         renewalRequested,
+        tenantAutoPayEthBalance,
+        lastAutoPaymentPeriod,
       ] = await Promise.all([
         contract.rentAmount(),
         contract.depositAmount(),
@@ -198,9 +211,20 @@ window.addEventListener("DOMContentLoaded", async () => {
         contract.depositBalance(),
         contract.currentEthUsdPrice(),
         contract.renewalRequested(),
+        contract.tenantAutoPayEthBalance(),
+        contract.lastAutoPaymentPeriod(),
       ]);
 
-      const fmtEth = (weiBN) => ethers.utils.formatEther(weiBN || "0");
+      const fmtAmount = (amountBN) => {
+        if (!amountBN) return "0";
+
+        if (isStabelcoinPayment) {
+          return ethers.utils.formatUnits(amountBN, 6); // USDC decimals
+        }
+
+        return ethers.utils.formatEther(amountBN); // ETH 18 decimals
+      };
+
       const toDate = (ts) => {
         const n = Number(ts || 0);
         if (!n) return "-";
@@ -215,8 +239,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         <p><strong>Tenant:</strong> ${tenant}</p>
         <p><strong>Arbiter:</strong> ${arbiter}</p>
         <hr/>
-        <p><strong>Rent amount (USD):</strong> ${fmtEth(rentAmount)}</p>
-        <p><strong>Deposit amount (USD):</strong> ${fmtEth(depositAmount)}</p>
+        <p><strong>Rent amount (USD):</strong> ${fmtAmount(rentAmount)}</p>
+        <p><strong>Deposit amount (USD):</strong> ${fmtAmount(depositAmount)}</p>
         <p><strong>ETH/USD (1e8):</strong> ${currentPrice.toString()}</p>
         <p><strong>Stablecoin payment:</strong> ${isStabelcoinPayment ? "Yes" : "No"}</p>
         ${isStabelcoinPayment ? `<p><strong>Stablecoin address:</strong> ${stabelcoinAddress}</p>` : ""}
@@ -228,6 +252,12 @@ window.addEventListener("DOMContentLoaded", async () => {
         <p><strong>Warnings:</strong> ${warningCount}</p>
         <p><strong>Amount owed (wei):</strong> ${amountOwed.toString()}</p>
         <p><strong>Deposit balance (wei):</strong> ${depositBalance.toString()}</p>
+        ${
+          !isStabelcoinPayment
+            ? `<p><strong>Tenant auto-pay ETH balance:</strong> ${ethers.utils.formatEther(tenantAutoPayEthBalance)} ETH</p>
+               <p><strong>Last auto-pay period:</strong> ${Number(lastAutoPaymentPeriod) ? toDate(lastAutoPaymentPeriod) : "-"}</p>`
+            : ""
+        }
         <p><strong>IPFS:</strong> ${contractIPFSHash}</p>
       `;
 
@@ -245,6 +275,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         ${btn("Request warning", "act_reqWarn")}
         ${btn("Confirm warning", "act_confirmWarn")}
         ${btn("Check termination eligibility", "act_checkTerm")}
+        ${btn("Process auto payment", "act_processAuto")}
+        ${btn("Run upkeep now", "act_runUpkeep")}
         ${btn("Execute termination", "act_execTerm")}
         ${btn("Terminate if not renewed", "act_termIfNotRenewed")}
         ${btn("Request early termination", "act_reqEarly")}
@@ -263,6 +295,20 @@ window.addEventListener("DOMContentLoaded", async () => {
         ${btn("Confirm early termination", "act_confirmEarly")}
         ${btn("Execute tenant termination", "act_execTenantTerm")}
         ${btn("Request early termination", "act_earlyTermination")}
+        ${
+          isStabelcoinPayment
+            ? `<div class="card">
+                 <div><strong>Stablecoin allowance</strong></div>
+                 ${input("stableApproveAmount", "Amount to approve", "number")}
+                 ${btn("Set allowance", "act_stableApprove")}
+               </div>`
+            : `<div class="card">
+                 <div><strong>ETH auto-pay balance</strong></div>
+                 ${input("autoEthAmount", "ETH amount", "number")}
+                 ${btn("Fund auto-pay ETH", "act_autoFundEth")}
+                 ${btn("Withdraw auto-pay ETH", "act_autoWithdrawEth")}
+               </div>`
+        }
         <div class="card">
           <div><strong>Pay rent ${isStabelcoinPayment ? "(stablecoin)" : "(ETH)"}</strong></div>
           ${btn("Pay rent", "act_payRent")}
@@ -336,6 +382,36 @@ window.addEventListener("DOMContentLoaded", async () => {
           const ts = await contract.terminationTimeStamp();
           return `rentalStatus=${rentalStatusText(status)}\nterminationTimeStamp=${Number(ts) ? new Date(Number(ts) * 1000).toLocaleString() : "-"}`;
         });
+      });
+
+      document.getElementById("act_processAuto")?.addEventListener("click", async () => {
+        await sendTxAndAlert(contract.processAutoPayment(), "Auto payment processed", async () => {
+          const bal = await contract.tenantAutoPayEthBalance();
+          const owed = await contract.amountOwed();
+          return `tenantAutoPayEthBalance=${bal.toString()}\namountOwed=${owed.toString()}`;
+        });
+      });
+
+      document.getElementById("act_runUpkeep")?.addEventListener("click", async () => {
+        try {
+          const checked = await contract.checkUpkeep("0x");
+          const upkeepNeeded = checked[0];
+          const performData = checked[1];
+
+          if (!upkeepNeeded) {
+            alert("Upkeep not needed right now.");
+            return;
+          }
+
+          await sendTxAndAlert(contract.performUpkeep(performData), "Upkeep executed", async () => {
+            const bal = await contract.tenantAutoPayEthBalance();
+            const owed = await contract.amountOwed();
+            return `tenantAutoPayEthBalance=${bal.toString()}\namountOwed=${owed.toString()}`;
+          });
+        } catch (err) {
+          console.error(err);
+          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
+        }
       });
 
       document.getElementById("act_execTerm")?.addEventListener("click", async () => {
@@ -423,6 +499,86 @@ window.addEventListener("DOMContentLoaded", async () => {
           const ok = await contract.autoPaymentApproved(await signer.getAddress());
           return `autoPaymentApproved=${ok}`;
         });
+      });
+
+      document.getElementById("act_stableApprove")?.addEventListener("click", async () => {
+        try {
+          if (!isStabelcoinPayment) {
+            alert("This contract is not in stablecoin mode.");
+            return;
+          }
+
+          const rawAmount = (document.getElementById("stableApproveAmount")?.value || "").trim();
+          if (!rawAmount || Number(rawAmount) <= 0) {
+            alert("Enter amount to approve.");
+            return;
+          }
+
+          const tokenAbi = await fetch("abi/MockERC20.abi.json").then((r) => r.json());
+          const token = new ethers.Contract(stabelcoinAddress, tokenAbi, signer);
+          const decimals = Number(await token.decimals());
+          const approveAmount = ethers.utils.parseUnits(rawAmount, decimals);
+
+          await sendTxAndAlert(
+            token.approve(contract.address, approveAmount),
+            "Stablecoin allowance set",
+            async () => {
+              const allowance = await token.allowance(await signer.getAddress(), contract.address);
+              return `allowance=${allowance.toString()}`;
+            }
+          );
+        } catch (err) {
+          console.error(err);
+          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
+        }
+      });
+
+      document.getElementById("act_autoFundEth")?.addEventListener("click", async () => {
+        try {
+          if (isStabelcoinPayment) {
+            alert("This contract is not in ETH mode.");
+            return;
+          }
+
+          const rawAmount = (document.getElementById("autoEthAmount")?.value || "").trim();
+          if (!rawAmount || Number(rawAmount) <= 0) {
+            alert("Enter ETH amount.");
+            return;
+          }
+
+          const value = ethers.utils.parseEther(rawAmount);
+          await sendTxAndAlert(contract.fundAutoPayEth({ value }), "ETH auto-pay balance funded", async () => {
+            const bal = await contract.tenantAutoPayEthBalance();
+            return `tenantAutoPayEthBalance=${ethers.utils.formatEther(bal)} ETH`;
+          });
+        } catch (err) {
+          console.error(err);
+          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
+        }
+      });
+
+      document.getElementById("act_autoWithdrawEth")?.addEventListener("click", async () => {
+        try {
+          if (isStabelcoinPayment) {
+            alert("This contract is not in ETH mode.");
+            return;
+          }
+
+          const rawAmount = (document.getElementById("autoEthAmount")?.value || "").trim();
+          if (!rawAmount || Number(rawAmount) <= 0) {
+            alert("Enter ETH amount.");
+            return;
+          }
+
+          const amount = ethers.utils.parseEther(rawAmount);
+          await sendTxAndAlert(contract.withdrawAutoPayEth(amount), "ETH auto-pay balance withdrawn", async () => {
+            const bal = await contract.tenantAutoPayEthBalance();
+            return `tenantAutoPayEthBalance=${ethers.utils.formatEther(bal)} ETH`;
+          });
+        } catch (err) {
+          console.error(err);
+          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
+        }
       });
 
       // Tenant — payments

@@ -1,82 +1,96 @@
-// scripts/deployRental.js
 const fs = require("fs");
 const path = require("path");
 const hre = require("hardhat");
 
 async function main() {
-  const [landlord, tenant, arbiter] = await hre.ethers.getSigners();
+  const [, tenant, arbiter] = await hre.ethers.getSigners();
 
-  // DateUtils – jen deploy, nic nelinkujeme (vše internal)
-  const DateUtils = await hre.ethers.getContractFactory("DateUtils");
-  const dateUtils = await DateUtils.deploy();
-  await dateUtils.waitForDeployment();
-  console.log(`DateUtils deployed to: ${await dateUtils.getAddress()}`);
-
-  // Mock price feed
   const MockV3Aggregator = await hre.ethers.getContractFactory("MockV3Aggregator");
-  const DECIMALS = 8;
-  const INITIAL_ANSWER = hre.ethers.parseUnits("2000", DECIMALS);
-  const mockFeed = await MockV3Aggregator.deploy(DECIMALS, INITIAL_ANSWER);
+  const FEED_DECIMALS = 8;
+  const INITIAL_ANSWER = hre.ethers.parseUnits("2000", FEED_DECIMALS);
+  const mockFeed = await MockV3Aggregator.deploy(FEED_DECIMALS, INITIAL_ANSWER);
   await mockFeed.waitForDeployment();
-  console.log(`MockV3Aggregator deployed to: ${await mockFeed.getAddress()}`);
-
-  // RentalAgreement (bez libraries; DateUtils je internal)
-  const RentalAgreementFactory = await hre.ethers.getContractFactory("RentalAgreement");
-
-  // Testovací hodnoty
-  const rentAmount = hre.ethers.parseEther("1");
-  const depositAmount = hre.ethers.parseEther("0.5");
-  const contractIPFSHash = "QmSomeIPFSHash";
-  const isStablecoinPayment = false;
-  const stablecoinAddress = "0x0000000000000000000000000000000000000000";
   const priceFeedAddress = await mockFeed.getAddress();
-  const paymentDueDate = 5;
+  console.log(`MockV3Aggregator deployed to: ${priceFeedAddress}`);
 
-  console.log("DEPLOY ARGS CHECK", {
+  const MockERC20 = await hre.ethers.getContractFactory("MockERC20");
+  const USDC_DECIMALS = 6;
+  const mockUSDC = await MockERC20.deploy(
+    "Mock USDC",
+    "mUSDC",
+    USDC_DECIMALS,
+    tenant.address,
+    hre.ethers.parseUnits("100000", USDC_DECIMALS)
+  );
+  await mockUSDC.waitForDeployment();
+  const stablecoinAddress = await mockUSDC.getAddress();
+  console.log(`MockERC20 (mUSDC) deployed to: ${stablecoinAddress}`);
+
+  const RentalAgreement = await hre.ethers.getContractFactory("RentalAgreement");
+  const common = {
     tenant: tenant.address,
     arbiter: arbiter.address,
-    rentAmount: rentAmount.toString(),
-    depositAmount: depositAmount.toString(),
-    contractIPFSHash,
-    isStablecoinPayment,
-    stablecoinAddress,
-    priceFeedAddress,
-    paymentDueDate
-  });
+    contractIPFSHash: "QmSomeIPFSHash",
+    paymentDueDate: 5,
+  };
 
-  const rentalAgreement = await RentalAgreementFactory.deploy(
-    tenant.address,
-    arbiter.address,
-    rentAmount,
-    depositAmount,
-    contractIPFSHash,
-    isStablecoinPayment,
-    stablecoinAddress,
+  const ethRental = await RentalAgreement.deploy(
+    common.tenant,
+    common.arbiter,
+    hre.ethers.parseEther("1000"),
+    hre.ethers.parseEther("2000"),
+    common.contractIPFSHash,
+    false,
+    hre.ethers.ZeroAddress,
     priceFeedAddress,
-    paymentDueDate
+    common.paymentDueDate
   );
-  await rentalAgreement.waitForDeployment();
+  await ethRental.waitForDeployment();
+  const ethRentalAddress = await ethRental.getAddress();
+  console.log(`ETH RentalAgreement deployed to: ${ethRentalAddress}`);
 
-  const rentalAddress = await rentalAgreement.getAddress();
-  console.log(`RentalAgreement deployed to: ${rentalAddress}`);
+  const stableRental = await RentalAgreement.deploy(
+    common.tenant,
+    common.arbiter,
+    hre.ethers.parseUnits("1000", USDC_DECIMALS),
+    hre.ethers.parseUnits("2000", USDC_DECIMALS),
+    common.contractIPFSHash,
+    true,
+    stablecoinAddress,
+    priceFeedAddress,
+    common.paymentDueDate
+  );
+  await stableRental.waitForDeployment();
+  const stableRentalAddress = await stableRental.getAddress();
+  console.log(`Stablecoin RentalAgreement deployed to: ${stableRentalAddress}`);
 
-  // === EXPORT PRO FRONTEND ===
   const outDir = path.join(__dirname, "../frontend/abi");
   fs.mkdirSync(outDir, { recursive: true });
 
-  // 1) ABI-only (na attach k už nasazenému kontraktu)
-  const artifact = await hre.artifacts.readArtifact("contracts/RentalAgreement.sol:RentalAgreement");
-  fs.writeFileSync(path.join(outDir, "RentalAgreement.abi.json"), JSON.stringify(artifact.abi, null, 2));
+  const rentalArtifact = await hre.artifacts.readArtifact("contracts/RentalAgreement.sol:RentalAgreement");
+  fs.writeFileSync(path.join(outDir, "RentalAgreement.abi.json"), JSON.stringify(rentalArtifact.abi, null, 2));
+  fs.writeFileSync(path.join(outDir, "RentalAgreement.json"), JSON.stringify({ abi: rentalArtifact.abi, bytecode: rentalArtifact.bytecode }, null, 2));
 
-  // 2) Adresy nasazených kontraktů
-  fs.writeFileSync(path.join(outDir, "RentalAgreement.address.json"), JSON.stringify({ address: rentalAddress }, null, 2));
-  fs.writeFileSync(path.join(outDir, "MockV3Aggregator.address.json"), JSON.stringify({ address: await mockFeed.getAddress() }, null, 2));
+  const mockErc20Artifact = await hre.artifacts.readArtifact("contracts/MockERC20.sol:MockERC20");
+  fs.writeFileSync(path.join(outDir, "MockERC20.abi.json"), JSON.stringify(mockErc20Artifact.abi, null, 2));
 
-  // 3) ABI + BYTECODE (frontend deploy z prohlížeče tohle potřebuje)
-  const full = await hre.artifacts.readArtifact("contracts/RentalAgreement.sol:RentalAgreement");
-  const fullPath = path.join(outDir, "RentalAgreement.json"); // <— tohle čte frontend pro deploy
-  fs.writeFileSync(fullPath, JSON.stringify({ abi: full.abi, bytecode: full.bytecode }, null, 2));
-  console.log(`ABI+bytecode saved to: ${fullPath}`);
+  fs.writeFileSync(path.join(outDir, "MockV3Aggregator.address.json"), JSON.stringify({ address: priceFeedAddress }, null, 2));
+  fs.writeFileSync(path.join(outDir, "MockERC20.address.json"), JSON.stringify({ address: stablecoinAddress }, null, 2));
+  fs.writeFileSync(path.join(outDir, "RentalAgreement.address.json"), JSON.stringify({ address: ethRentalAddress }, null, 2));
+  fs.writeFileSync(
+    path.join(outDir, "RentalAgreement.addresses.json"),
+    JSON.stringify(
+      {
+        eth: ethRentalAddress,
+        stable: stableRentalAddress,
+      },
+      null,
+      2
+    )
+  );
+
+  console.log("Frontend ABI/address files were updated in frontend/abi");
+  console.log("Use RentalAgreement.addresses.json to test both modes quickly.");
 }
 
 main().catch((error) => {

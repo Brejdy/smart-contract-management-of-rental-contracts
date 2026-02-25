@@ -136,6 +136,7 @@ contract RentalAgreement is ReentrancyGuard {
         require(_depositAmount >= 0, "Deposit amount must be non-negative");
         require(bytes(_contractIPFSHash).length > 0, "IPFS hash must be set");
         require(_paymentDueDate >= 1 && _paymentDueDate <= 31, "Invalid payment date");
+        require(!_isStablecoinPayment || _stablecoinAddress != address(0), "Stablecoin address required");
 
         landlord = msg.sender;
         tenant = _tenant;
@@ -161,9 +162,9 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function getLatestPrice() public view onlyParticipants returns (uint256) {
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        return uint256(price);
-        //return 2000*10**8;
+        //(, int256 price, , , ) = priceFeed.latestRoundData();
+        //return uint256(price);
+        return 2000*10**8;
     }
 
     function authorizeAutoPayment() external onlyTenant {
@@ -176,17 +177,35 @@ contract RentalAgreement is ReentrancyGuard {
         emit AutoPaymentRevoked(tenant);
     }
 
-    function processAutoPayment() external onlyLandlord {
-        address _tenant = tenant;
-        uint _rentAmount = rentAmount;
+    function processAutoPayment() external onlyTenant {
+        uint256 rentWei;
 
-        require(autoPaymentApproved[_tenant], "Auto payment not authorized");
-        require(rentalStatus == RentalStatus.Active, "Contract is not active");
+        if (isStabelcoinPayment) {
+            rentWei = rentAmount;
 
-        emit RentPaid(_tenant, _rentAmount, true);
-        require(IERC20(stabelcoinAddress).transferFrom(_tenant, landlord, _rentAmount ), "Auto pay failed" );
+            require(
+                IERC20(stabelcoinAddress).allowance(tenant, address(this)) >= rentWei,
+                "Insufficient allowance"
+            );
+
+            IERC20(stabelcoinAddress).transferFrom(
+                tenant,
+                landlord,
+                rentWei
+            );
+        } else {
+            rentWei = quoteRentInWei();
+
+            require(address(this).balance >= rentWei, "Contract lacks ETH");
+
+            payable(landlord).transfer(rentWei);
+        }
+
+        paymentHistory.push(PaymentRecord(uint48(block.timestamp), rentWei, isStabelcoinPayment));
+
+        checkAndUpdateNextPayment();
         
-        paymentHistory.push(PaymentRecord(uint48(block.timestamp), _rentAmount, true));
+        emit RentPaid(tenant, rentWei, isStabelcoinPayment);
     }
 
     function checkAndUpdateNextPayment() public onlyParticipants {
@@ -200,6 +219,7 @@ contract RentalAgreement is ReentrancyGuard {
             emit PaymentMissed(tenant, _rentAmount);
         }
 
+        amountOwed = _amountOwed;
         emit PaymentDueDateUpdate(nextPaymentTimestamp);
     }
 
@@ -218,10 +238,13 @@ contract RentalAgreement is ReentrancyGuard {
 
         uint256 amountToPay;
         if (_isStabelcoinPayment) {
+            require(msg.value == 0, "No ETH required for stablecoin rent");
+            IERC20 stablecoin = IERC20(stabelcoinAddress);
 
             amountToPay = _rentAmount;
+            require(stablecoin.allowance(msg.sender, address(this)) >= amountToPay, "Insufficient allowance for rent");
             emit RentPaid(msg.sender, amountToPay, isStabelcoinPayment);
-            require(IERC20(stabelcoinAddress).transferFrom(msg.sender, _landlord, amountToPay), "Stablecoin payment failed");
+            require(stablecoin.transferFrom(msg.sender, _landlord, amountToPay), "Stablecoin payment failed");
         } 
         else {
             uint256 ethPrice = getLatestPrice();
@@ -289,10 +312,12 @@ contract RentalAgreement is ReentrancyGuard {
         if (_isStabelcoinPayment) 
         {
             require(msg.value == 0, "No ETH required for stablecoin deposit");
+            IERC20 stablecoin = IERC20(_stabelcoinAddress);
             amountToPay = _depositAmount;
+            require(stablecoin.allowance(msg.sender, address(this)) >= amountToPay, "Insufficient allowance for deposit");
 
             emit DepositPaid(msg.sender, amountToPay, _isStabelcoinPayment);
-            require(IERC20(_stabelcoinAddress).transferFrom(msg.sender, address(this), amountToPay), "Stablecoin deposit failed");
+            require(stablecoin.transferFrom(msg.sender, address(this), amountToPay), "Stablecoin deposit failed");
             depositBalance = _depositBalance + amountToPay;
         } 
         else 
@@ -334,7 +359,7 @@ contract RentalAgreement is ReentrancyGuard {
         uint256 amountToDeduct;
 
         if (_isStabelcoinPayment) {
-            amountToDeduct = usdAmount * 1e18;
+            amountToDeduct = usdAmount;
             require(amountToDeduct <= _depositBalance, "Deduction exceeds deposit amount");
 
             depositBalance = _depositBalance - amountToDeduct;
@@ -344,7 +369,7 @@ contract RentalAgreement is ReentrancyGuard {
             require(IERC20(_stabelcoinAddress).transfer(_landlord, amountToDeduct), "Stablecoin transfer failed");
         } else {
             uint256 ethPrice = getLatestPrice();
-            amountToDeduct = (usdAmount * 1e18 * 1e8) / ethPrice;
+            amountToDeduct = (usdAmount * 1e8) / ethPrice;
 
             require(amountToDeduct <= depositBalance, "Deduction exceeds deposit amount");
 
