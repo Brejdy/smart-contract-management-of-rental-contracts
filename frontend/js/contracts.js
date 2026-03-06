@@ -91,15 +91,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         lines.push(`Auto-payment approved.`);
       } else if (name === "AutoPaymentRevoked") {
         lines.push(`Auto-payment revoked.`);
-      } else if (name === "AutoPayEthFunded") {
-        const [, amount] = args;
-        lines.push(`Auto-pay ETH funded: ${humanAmount(amount)} ETH`);
-      } else if (name === "AutoPayEthWithdrawn") {
-        const [, amount] = args;
-        lines.push(`Auto-pay ETH withdrawn: ${humanAmount(amount)} ETH`);
-      } else if (name === "AutoPaymentProcessed") {
-        const [, amount, stable, periodKey] = args;
-        lines.push(`AutoPaymentProcessed: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} | period=${periodKey.toString()}`);
       } else {
         // fallback – generický výpis argumentů
         const pretty = Object.entries(args)
@@ -160,6 +151,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       const abi = artifact.abi;
       const contract = new ethers.Contract(contractAddress, abi, signer);
       window.__lastLoadedContract = contract; // aby summarizeEvents mělo iface
+      const hasMethod = (name) => typeof contract[name] === "function";
+      const supportsCurrentPrice = hasMethod("currentEthUsdPrice");
 
       console.log(contract);
 
@@ -194,8 +187,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         depositBalance,
         currentPrice,
         renewalRequested,
-        tenantAutoPayEthBalance,
-        lastAutoPaymentPeriod,
       ] = await Promise.all([
         contract.rentAmount(),
         contract.depositAmount(),
@@ -209,10 +200,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         contract.warningCount(),
         contract.amountOwed(),
         contract.depositBalance(),
-        contract.currentEthUsdPrice(),
+        supportsCurrentPrice ? contract.currentEthUsdPrice() : ethers.constants.Zero,
         contract.renewalRequested(),
-        contract.tenantAutoPayEthBalance(),
-        contract.lastAutoPaymentPeriod(),
       ]);
 
       const fmtAmount = (amountBN) => {
@@ -241,7 +230,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         <hr/>
         <p><strong>Rent amount (USD):</strong> ${fmtAmount(rentAmount)}</p>
         <p><strong>Deposit amount (USD):</strong> ${fmtAmount(depositAmount)}</p>
-        <p><strong>ETH/USD (1e8):</strong> ${currentPrice.toString()}</p>
+        <p><strong>ETH/USD (1e8):</strong> ${supportsCurrentPrice ? currentPrice.toString() : "N/A (not in this contract version)"}</p>
         <p><strong>Stablecoin payment:</strong> ${isStabelcoinPayment ? "Yes" : "No"}</p>
         ${isStabelcoinPayment ? `<p><strong>Stablecoin address:</strong> ${stabelcoinAddress}</p>` : ""}
         <p><strong>Payment day:</strong> ${paymentDueDate}</p>
@@ -252,12 +241,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         <p><strong>Warnings:</strong> ${warningCount}</p>
         <p><strong>Amount owed (wei):</strong> ${amountOwed.toString()}</p>
         <p><strong>Deposit balance (wei):</strong> ${depositBalance.toString()}</p>
-        ${
-          !isStabelcoinPayment
-            ? `<p><strong>Tenant auto-pay ETH balance:</strong> ${ethers.utils.formatEther(tenantAutoPayEthBalance)} ETH</p>
-               <p><strong>Last auto-pay period:</strong> ${Number(lastAutoPaymentPeriod) ? toDate(lastAutoPaymentPeriod) : "-"}</p>`
-            : ""
-        }
         <p><strong>IPFS:</strong> ${contractIPFSHash}</p>
       `;
 
@@ -275,8 +258,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         ${btn("Request warning", "act_reqWarn")}
         ${btn("Confirm warning", "act_confirmWarn")}
         ${btn("Check termination eligibility", "act_checkTerm")}
-        ${btn("Process auto payment", "act_processAuto")}
-        ${btn("Run upkeep now", "act_runUpkeep")}
+        ${isStabelcoinPayment ? btn("Process auto payment", "act_processAuto") : ""}
         ${btn("Execute termination", "act_execTerm")}
         ${btn("Terminate if not renewed", "act_termIfNotRenewed")}
         ${btn("Request early termination", "act_reqEarly")}
@@ -302,12 +284,7 @@ window.addEventListener("DOMContentLoaded", async () => {
                  ${input("stableApproveAmount", "Amount to approve", "number")}
                  ${btn("Set allowance", "act_stableApprove")}
                </div>`
-            : `<div class="card">
-                 <div><strong>ETH auto-pay balance</strong></div>
-                 ${input("autoEthAmount", "ETH amount", "number")}
-                 ${btn("Fund auto-pay ETH", "act_autoFundEth")}
-                 ${btn("Withdraw auto-pay ETH", "act_autoWithdrawEth")}
-               </div>`
+            : ``
         }
         <div class="card">
           <div><strong>Pay rent ${isStabelcoinPayment ? "(stablecoin)" : "(ETH)"}</strong></div>
@@ -317,19 +294,24 @@ window.addEventListener("DOMContentLoaded", async () => {
           <div><strong>Pay deposit ${isStabelcoinPayment ? "(stablecoin)" : "(ETH)"}</strong></div>
           ${btn("Pay deposit", "act_payDeposit")}
         </div>
-        <div class="card">
-          <div><strong>Auto-payment</strong></div>
-          ${btn("Authorize", "act_autoOn")}
-          ${btn("Revoke", "act_autoOff")}
-        </div>
+        ${
+          isStabelcoinPayment
+            ? `<div class="card">
+                 <div><strong>Auto-payment</strong></div>
+                 ${btn("Authorize", "act_autoOn")}
+                 ${btn("Revoke", "act_autoOff")}
+               </div>`
+            : ""
+        }
       `;
 
       let arbiterUI = `
         <h3>Arbiter</h3>
         <div class="card">
           <div><strong>Deposit deduction request</strong></div>
-          ${input("arbReqId", "Deduction Request ID", "number")}
+          ${input("arbReqId", "Deduction Request ID (0 = first)", "number")}
           ${input("arbRejectionReason", "Rejection reason")}
+          ${btn("Show all requests", "act_showAllDeductions")}
           ${btn("Show request", "act_showDeduction")}
           ${btn("Approve", "act_approveDeduction")}
           ${btn("Reject", "act_rejectDeduction")}
@@ -385,33 +367,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
 
       document.getElementById("act_processAuto")?.addEventListener("click", async () => {
-        await sendTxAndAlert(contract.processAutoPayment(), "Auto payment processed", async () => {
-          const bal = await contract.tenantAutoPayEthBalance();
-          const owed = await contract.amountOwed();
-          return `tenantAutoPayEthBalance=${bal.toString()}\namountOwed=${owed.toString()}`;
-        });
-      });
-
-      document.getElementById("act_runUpkeep")?.addEventListener("click", async () => {
-        try {
-          const checked = await contract.checkUpkeep("0x");
-          const upkeepNeeded = checked[0];
-          const performData = checked[1];
-
-          if (!upkeepNeeded) {
-            alert("Upkeep not needed right now.");
-            return;
-          }
-
-          await sendTxAndAlert(contract.performUpkeep(performData), "Upkeep executed", async () => {
-            const bal = await contract.tenantAutoPayEthBalance();
-            const owed = await contract.amountOwed();
-            return `tenantAutoPayEthBalance=${bal.toString()}\namountOwed=${owed.toString()}`;
-          });
-        } catch (err) {
-          console.error(err);
-          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
+        if (!isStabelcoinPayment) {
+          alert("ETH auto-payment was removed from this project.");
+          return;
         }
+        await sendTxAndAlert(contract.processAutoPayment(), "Auto payment processed", async () => {
+          const owed = await contract.amountOwed();
+          return `amountOwed=${owed.toString()}`;
+        });
       });
 
       document.getElementById("act_execTerm")?.addEventListener("click", async () => {
@@ -436,12 +399,16 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
 
       document.getElementById("act_deduct")?.addEventListener("click", async () => {
-        const usd = document.getElementById("deductUsd").value;
+        const usd = (document.getElementById("deductUsd").value || "").trim();
         const reason = (document.getElementById("deductReason").value || "").trim();
         if (!usd || Number(usd) <= 0) return alert("Enter USD amount.");
 
+        const usdAmount = isStabelcoinPayment
+          ? ethers.utils.parseUnits(usd, 6)
+          : ethers.utils.parseEther(usd);
+
         await sendTxAndAlert(
-          contract.requestDeduction(ethers.BigNumber.from(usd), reason), // ← přidán 2. parametr
+          contract.requestDeduction(usdAmount, reason, ""),
           "Deposit deduction requested (waiting for approval)",
           async () => {
             const bal = await contract.depositBalance();
@@ -533,53 +500,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       });
 
-      document.getElementById("act_autoFundEth")?.addEventListener("click", async () => {
-        try {
-          if (isStabelcoinPayment) {
-            alert("This contract is not in ETH mode.");
-            return;
-          }
-
-          const rawAmount = (document.getElementById("autoEthAmount")?.value || "").trim();
-          if (!rawAmount || Number(rawAmount) <= 0) {
-            alert("Enter ETH amount.");
-            return;
-          }
-
-          const value = ethers.utils.parseEther(rawAmount);
-          await sendTxAndAlert(contract.fundAutoPayEth({ value }), "ETH auto-pay balance funded", async () => {
-            const bal = await contract.tenantAutoPayEthBalance();
-            return `tenantAutoPayEthBalance=${ethers.utils.formatEther(bal)} ETH`;
-          });
-        } catch (err) {
-          console.error(err);
-          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
-        }
-      });
-
-      document.getElementById("act_autoWithdrawEth")?.addEventListener("click", async () => {
-        try {
-          if (isStabelcoinPayment) {
-            alert("This contract is not in ETH mode.");
-            return;
-          }
-
-          const rawAmount = (document.getElementById("autoEthAmount")?.value || "").trim();
-          if (!rawAmount || Number(rawAmount) <= 0) {
-            alert("Enter ETH amount.");
-            return;
-          }
-
-          const amount = ethers.utils.parseEther(rawAmount);
-          await sendTxAndAlert(contract.withdrawAutoPayEth(amount), "ETH auto-pay balance withdrawn", async () => {
-            const bal = await contract.tenantAutoPayEthBalance();
-            return `tenantAutoPayEthBalance=${ethers.utils.formatEther(bal)} ETH`;
-          });
-        } catch (err) {
-          console.error(err);
-          alert(`Error: ${err?.data?.message ?? err.message ?? err}`);
-        }
-      });
 
       // Tenant — payments
       document.getElementById("act_payRent")?.addEventListener("click", async () => {
@@ -657,9 +577,46 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
 
       //Arbiter
+      document.getElementById("act_showAllDeductions")?.addEventListener("click", async () => {
+        try {
+          let reqs = [];
+
+          if (typeof contract.getAllDeductionRequests === "function") {
+            reqs = await contract.getAllDeductionRequests();
+          } else {
+            // Backward compatibility for older deployments without getAllDeductionRequests()
+            for (let i = 0; i < 1000; i++) {
+              try {
+                const req = await contract.deductionRequests(i);
+                reqs.push(req);
+              } catch {
+                break;
+              }
+            }
+          }
+
+          if (!reqs.length) {
+            alert("No deduction requests yet.");
+            return;
+          }
+
+          const lines = reqs.map((req, id) =>
+            `#${id} | amount=${req.amount.toString()} USD | approved=${req.approval} | rejected=${req.rejected} | reason="${req.reason}" | rejectionReason="${req.rejectionReason}"`
+          );
+          alert(lines.join("\n"));
+        } catch (e) {
+          console.error(e);
+          alert(`Cannot read deduction requests: ${e?.data?.message ?? e.message ?? e}`);
+        }
+      });
+
       document.getElementById("act_showDeduction")?.addEventListener("click", async () => {
         const idRaw = document.getElementById("arbReqId").value;
         const id = Number(idRaw);
+        if (!Number.isInteger(id) || id < 0) {
+          alert("Enter valid request ID (0 = first request).");
+          return;
+        }
 
         try {
           const req = await contract.deductionRequests(id);
@@ -667,23 +624,23 @@ window.addEventListener("DOMContentLoaded", async () => {
             `Request #${id}\n` +
             `amount (USD): ${req.amount.toString()}\n` +
             `reason: ${req.reason}\n` +
-            `approved: ${req.approval}`/n + 
-            `rejected: ${req.rejected}`/n + 
+            `approved: ${req.approval}\n` + 
+            `rejected: ${req.rejected}\n` + 
             `Reason for rejection: ${req.rejectionReason}` 
           );
         } catch (e) {
           console.error(e);
-          alert("Cannot read request - invalid ID");
+          alert("Cannot read request - invalid ID (first request is ID 0).");
         }
       });
 
       document.getElementById("act_approveDeduction")?.addEventListener("click", async () => {
         const idRaw = document.getElementById("arbReqId").value;
         const id = Number(idRaw);
-        if(!NaN(id) || id < 0)
+        if (!Number.isInteger(id) || id < 0)
           return alert("Enter valid request ID");
 
-        await sentTxAndAlert(
+        await sendTxAndAlert(
           contract.approveDeduction(id),
           "Deduction approved by Arbiter",
           async () => {
@@ -699,10 +656,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("act_rejectDeduction")?.addEventListener("click", async () => {
         const idRaw = document.getElementById("arbReqId").value;
         const id = Number(idRaw);
-        if(!NaN(id) || id < 0) 
+        if (!Number.isInteger(id) || id < 0) 
           return alert("Enter valid ID");
 
-        const reason = (document.getElementById("arbRejectReason").value || "").trim();
+        const reason = (document.getElementById("arbRejectionReason").value || "").trim();
         if(!reason) {
           if(!confirm("No rejection reason entered. Reject anyway?"))
             return;

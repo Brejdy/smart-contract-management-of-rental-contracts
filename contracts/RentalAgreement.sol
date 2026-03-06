@@ -18,6 +18,7 @@ contract RentalAgreement is ReentrancyGuard {
     bool public immutable isStabelcoinPayment;
     address public immutable stabelcoinAddress;
     AggregatorV3Interface internal immutable priceFeed;
+    uint256 private constant FEED_TARGET_DECIMALS = 8;
     uint256 public depositBalance;
     uint48 public immutable depositStartTime;
     uint256 public deductedAmount;
@@ -111,7 +112,7 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     modifier onlyParticipants() {
-        require(msg.sender == landlord || msg.sender == tenant, "Only landlord or tenant can perform this action;");
+        require(msg.sender == landlord || msg.sender == tenant || msg.sender == arbiter, "Only landlord, tenant, or arbiter can perform this action");
         _;
     }
 
@@ -132,6 +133,7 @@ contract RentalAgreement is ReentrancyGuard {
         uint256 _paymentDueDate
     ) {
         require(_tenant != address(0), "Invalid tenant address");
+        require(_priceFeed != address(0), "Invalid price feed address");
         require(_rentAmount > 0, "Rent amount must be greater than 0");
         require(_depositAmount >= 0, "Deposit amount must be non-negative");
         require(bytes(_contractIPFSHash).length > 0, "IPFS hash must be set");
@@ -162,9 +164,31 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function getLatestPrice() public view onlyParticipants returns (uint256) {
-        //(, int256 price, , , ) = priceFeed.latestRoundData();
-        //return uint256(price);
-        return 2000*10**8;
+        (
+            uint80 roundId,
+            int256 price,
+            ,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        ) = priceFeed.latestRoundData();
+
+        require(price > 0, "Invalid ETH/USD price");
+        require(updatedAt > 0, "Price not updated");
+        require(answeredInRound >= roundId, "Stale price round");
+
+        uint256 scaledPrice = uint256(price);
+        uint8 feedDecimals = priceFeed.decimals();
+
+        if (feedDecimals > FEED_TARGET_DECIMALS) {
+            uint256 divisor = 10 ** (feedDecimals - FEED_TARGET_DECIMALS);
+            return scaledPrice / divisor;
+        }
+        if (feedDecimals < FEED_TARGET_DECIMALS) {
+            uint256 multiplier = 10 ** (FEED_TARGET_DECIMALS - feedDecimals);
+            return scaledPrice * multiplier;
+        }
+
+        return scaledPrice;
     }
 
     function authorizeAutoPayment() external onlyTenant {
@@ -178,28 +202,21 @@ contract RentalAgreement is ReentrancyGuard {
     }
 
     function processAutoPayment() external onlyTenant {
+        require(isStabelcoinPayment, "Auto-payment is available only for stablecoin mode");
         uint256 rentWei;
 
-        if (isStabelcoinPayment) {
-            rentWei = rentAmount;
+        rentWei = rentAmount;
 
-            require(
-                IERC20(stabelcoinAddress).allowance(tenant, address(this)) >= rentWei,
-                "Insufficient allowance"
-            );
+        require(
+            IERC20(stabelcoinAddress).allowance(tenant, address(this)) >= rentWei,
+            "Insufficient allowance"
+        );
 
-            IERC20(stabelcoinAddress).transferFrom(
-                tenant,
-                landlord,
-                rentWei
-            );
-        } else {
-            rentWei = quoteRentInWei();
-
-            require(address(this).balance >= rentWei, "Contract lacks ETH");
-
-            payable(landlord).transfer(rentWei);
-        }
+        IERC20(stabelcoinAddress).transferFrom(
+            tenant,
+            landlord,
+            rentWei
+        );
 
         paymentHistory.push(PaymentRecord(uint48(block.timestamp), rentWei, isStabelcoinPayment));
 
@@ -346,6 +363,15 @@ contract RentalAgreement is ReentrancyGuard {
             rejected: false,
             rejectionReason: rejectionReason
         }));
+    }
+
+    function getAllDeductionRequests()
+        external
+        view
+        onlyArbiter
+        returns (DeductionRequest[] memory)
+    {
+        return deductionRequests;
     }
 
     function deductFromDeposit(uint256 usdAmount, string memory reason) internal {

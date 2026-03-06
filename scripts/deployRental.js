@@ -5,13 +5,27 @@ const hre = require("hardhat");
 async function main() {
   const [, tenant, arbiter] = await hre.ethers.getSigners();
 
-  const MockV3Aggregator = await hre.ethers.getContractFactory("MockV3Aggregator");
-  const FEED_DECIMALS = 8;
-  const INITIAL_ANSWER = hre.ethers.parseUnits("2000", FEED_DECIMALS);
-  const mockFeed = await MockV3Aggregator.deploy(FEED_DECIMALS, INITIAL_ANSWER);
-  await mockFeed.waitForDeployment();
-  const priceFeedAddress = await mockFeed.getAddress();
-  console.log(`MockV3Aggregator deployed to: ${priceFeedAddress}`);
+  const networkName = hre.network.name;
+  const knownEthUsdFeeds = {
+    sepolia: "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+    mainnet: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+  };
+
+  let priceFeedAddress = process.env.ETH_USD_FEED_ADDRESS || knownEthUsdFeeds[networkName];
+  let mockFeedAddress = null;
+
+  if (!priceFeedAddress) {
+    const MockV3Aggregator = await hre.ethers.getContractFactory("MockV3Aggregator");
+    const FEED_DECIMALS = 8;
+    const INITIAL_ANSWER = hre.ethers.parseUnits("2000", FEED_DECIMALS);
+    const mockFeed = await MockV3Aggregator.deploy(FEED_DECIMALS, INITIAL_ANSWER);
+    await mockFeed.waitForDeployment();
+    priceFeedAddress = await mockFeed.getAddress();
+    mockFeedAddress = priceFeedAddress;
+    console.log(`MockV3Aggregator deployed to: ${priceFeedAddress}`);
+  } else {
+    console.log(`Using Chainlink ETH/USD feed on ${networkName}: ${priceFeedAddress}`);
+  }
 
   const MockERC20 = await hre.ethers.getContractFactory("MockERC20");
   const USDC_DECIMALS = 6;
@@ -74,7 +88,9 @@ async function main() {
   const mockErc20Artifact = await hre.artifacts.readArtifact("contracts/MockERC20.sol:MockERC20");
   fs.writeFileSync(path.join(outDir, "MockERC20.abi.json"), JSON.stringify(mockErc20Artifact.abi, null, 2));
 
-  fs.writeFileSync(path.join(outDir, "MockV3Aggregator.address.json"), JSON.stringify({ address: priceFeedAddress }, null, 2));
+  if (mockFeedAddress) {
+    fs.writeFileSync(path.join(outDir, "MockV3Aggregator.address.json"), JSON.stringify({ address: mockFeedAddress }, null, 2));
+  }
   fs.writeFileSync(path.join(outDir, "MockERC20.address.json"), JSON.stringify({ address: stablecoinAddress }, null, 2));
   fs.writeFileSync(path.join(outDir, "RentalAgreement.address.json"), JSON.stringify({ address: ethRentalAddress }, null, 2));
   fs.writeFileSync(
