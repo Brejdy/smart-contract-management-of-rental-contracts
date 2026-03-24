@@ -133,4 +133,4 @@ npx hardhat run scripts/deployRental.js --network localhost
 - `frontend/abi/` - ABI and contract address files for UI
 
 ## 9. Start full project
- - npm run dev
+ - npm run dev - step 3 is not required

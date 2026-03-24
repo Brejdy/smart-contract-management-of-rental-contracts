@@ -64,7 +64,7 @@ contract RentalAgreement is ReentrancyGuard {
         string ipfsHash
     );
     event RentPaid(
-        address indexed tennat, 
+        address indexed tenant, 
         uint256 amount, 
         bool stablecoin
     );
@@ -598,6 +598,3 @@ contract RentalAgreement is ReentrancyGuard {
         return _ethUsdPriceScaled();
     }
 }
-
-
-//TODO: FE change landlords function deductFromDeposit to requestDeductDeposit
