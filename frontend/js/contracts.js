@@ -1,4 +1,4 @@
-// POZOR: Ethers v5 (stejně jako index). Žádný BrowserProvider atd.
+// Uses Ethers v5 loaded globally from the HTML page.
 window.addEventListener("DOMContentLoaded", async () => {
   const addrInput = document.getElementById("contractAddress");
   const loadBtn = document.getElementById("loadContract");
@@ -20,59 +20,65 @@ window.addEventListener("DOMContentLoaded", async () => {
     const net = await provider.getNetwork();
     networkNote.textContent =
       Number(net.chainId) !== 31337
-        ? "This contract is only available on Hardhat localhost (chainId = 31337)."
-        : "Network OK: Hardhat localhost.";
+        ? "This interface expects the local Hardhat network (chainId 31337)."
+        : "Connected to Hardhat localhost. Role-based actions are ready.";
     return provider.getSigner();
   }
 
-  // ==== helpers =======================================================
-
   function short(addr) {
     if (!addr) return "";
-    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   }
 
   function humanAmount(bn) {
-    try { return ethers.utils.formatEther(bn); } catch (e) { return String(bn); }
+    try {
+      return ethers.utils.formatEther(bn);
+    } catch (e) {
+      return String(bn);
+    }
   }
 
-  // rozparsuje receipt -> eventy tohoto kontraktu
   function summarizeEvents(receipt, contract) {
     const iface = contract.interface;
-    const ca = contract.address.toLowerCase();
+    const contractAddress = contract.address.toLowerCase();
     const lines = [];
 
     for (const log of receipt.logs || []) {
-      if ((log.address || "").toLowerCase() !== ca) continue;
+      if ((log.address || "").toLowerCase() !== contractAddress) continue;
+
       let parsed;
-      try { parsed = iface.parseLog(log); } catch { continue; }
+      try {
+        parsed = iface.parseLog(log);
+      } catch {
+        continue;
+      }
+
       const { name, args } = parsed;
 
-      // hezké zprávy pro známé eventy
       if (name === "RentPaid") {
-        const [ten, amount, stable] = args;
-        lines.push(`RentPaid: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} by ${short(ten)}`);
+        const [tenant, amount, stable] = args;
+        lines.push(`RentPaid: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} by ${short(tenant)}`);
       } else if (name === "DepositPaid") {
-        const [ten, amount, stable] = args;
-        lines.push(`DepositPaid: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} by ${short(ten)}`);
+        const [tenant, amount, stable] = args;
+        lines.push(`DepositPaid: ${humanAmount(amount)} ${stable ? "stablecoin" : "ETH"} by ${short(tenant)}`);
       } else if (name === "ExcesRentReturned") {
-        const [ten, amount] = args;
-        lines.push(`Excess returned to ${short(ten)}: ${humanAmount(amount)} ETH`);
+        const [tenant, amount] = args;
+        lines.push(`Excess returned to ${short(tenant)}: ${humanAmount(amount)} ETH`);
       } else if (name === "DepositReturned") {
-        const [ten, amount] = args;
-        lines.push(`DepositReturned to ${short(ten)}: ${humanAmount(amount)}`);
+        const [tenant, amount] = args;
+        lines.push(`DepositReturned to ${short(tenant)}: ${humanAmount(amount)}`);
       } else if (name === "DepositDeducted") {
         const [, amount, reason] = args;
         lines.push(`DepositDeducted: ${humanAmount(amount)} | reason: ${reason}`);
       } else if (name === "SevereBreachWarningRequested") {
-        const [ten] = args;
-        lines.push(`Warning requested for ${short(ten)}`);
+        const [tenant] = args;
+        lines.push(`Warning requested for ${short(tenant)}`);
       } else if (name === "SevereBreachWarningIssued") {
-        const [ten, count] = args;
-        lines.push(`Warning confirmed for ${short(ten)} | total warnings: ${count}`);
+        const [tenant, count] = args;
+        lines.push(`Warning confirmed for ${short(tenant)} | total warnings: ${count}`);
       } else if (name === "PaymentMissed") {
-        const [ten, missed] = args;
-        lines.push(`PaymentMissed by ${short(ten)}: ${humanAmount(missed)} USD`);
+        const [tenant, missed] = args;
+        lines.push(`PaymentMissed by ${short(tenant)}: ${humanAmount(missed)} USD`);
       } else if (name === "PaymentDueDateUpdate") {
         const [ts] = args;
         lines.push(`Next payment date: ${new Date(Number(ts) * 1000).toLocaleString()}`);
@@ -80,19 +86,18 @@ window.addEventListener("DOMContentLoaded", async () => {
         const [ts] = args;
         lines.push(`Termination scheduled at: ${new Date(Number(ts) * 1000).toLocaleString()}`);
       } else if (name === "ContractTerminated") {
-        const [, reason] = args; // landlord, reason
+        const [, reason] = args;
         lines.push(`ContractTerminated: ${reason}`);
       } else if (name === "ContractRenewed") {
         const [end] = args;
         lines.push(`Contract renewed. New end: ${new Date(Number(end) * 1000).toLocaleString()}`);
       } else if (name === "ContractRenewalRequested") {
-        lines.push(`Renewal requested.`);
+        lines.push("Renewal requested.");
       } else if (name === "AutoPaymentApproved") {
-        lines.push(`Auto-payment approved.`);
+        lines.push("Auto-payment approved.");
       } else if (name === "AutoPaymentRevoked") {
-        lines.push(`Auto-payment revoked.`);
+        lines.push("Auto-payment revoked.");
       } else {
-        // fallback – generický výpis argumentů
         const pretty = Object.entries(args)
           .filter(([k]) => !/^\d+$/.test(k))
           .map(([k, v]) => `${k}=${v}`)
@@ -104,26 +109,30 @@ window.addEventListener("DOMContentLoaded", async () => {
     return lines;
   }
 
-  // provedu tx, rozparsují eventy + volitelně přečtu stav po tx
   async function sendTxAndAlert(actionPromise, description, postReadFn) {
     try {
       const tx = await actionPromise;
       const receipt = await tx.wait();
       const extraEvents = (await (typeof postReadFn === "function" ? postReadFn() : null)) || "";
-      const evLines = receipt && receipt.logs ? summarizeEvents(receipt, tx.to ? { address: tx.to, interface: tx.interface || null } : actionPromise.contract) : [];
+      const fallbackEvents =
+        receipt && receipt.logs
+          ? summarizeEvents(
+              receipt,
+              tx.to ? { address: tx.to, interface: tx.interface || null } : actionPromise.contract
+            )
+          : [];
 
-      // když nemáme interface z promise, zkusíme jej vytáhnout z tx (u v5 nemusí být)
       let eventSummary = "";
       if (actionPromise.contract) {
         eventSummary = summarizeEvents(receipt, actionPromise.contract).join("\n");
       } else if (tx && tx.to && window.__lastLoadedContract) {
         eventSummary = summarizeEvents(receipt, window.__lastLoadedContract).join("\n");
       } else {
-        eventSummary = evLines.join("\n");
+        eventSummary = fallbackEvents.join("\n");
       }
 
       const msg =
-        `${description} \nTx hash: ${receipt.transactionHash}` +
+        `${description}\nTx hash: ${receipt.transactionHash}` +
         (eventSummary ? `\n\nEvents:\n${eventSummary}` : "") +
         (extraEvents ? `\n\nState:\n${extraEvents}` : "");
 
@@ -145,29 +154,35 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     try {
+      loadBtn.disabled = true;
+      loadBtn.textContent = "Loading...";
+
       const signer = await getSignerOnHardhat();
       const userAddress = (await signer.getAddress()).toLowerCase();
       const artifact = await fetch("abi/RentalAgreement.json").then((r) => r.json());
       const abi = artifact.abi;
       const contract = new ethers.Contract(contractAddress, abi, signer);
-      window.__lastLoadedContract = contract; // aby summarizeEvents mělo iface
+      window.__lastLoadedContract = contract;
+
       const hasMethod = (name) => typeof contract[name] === "function";
       const supportsCurrentPrice = hasMethod("currentEthUsdPrice");
 
-      console.log(contract);
-
-      const [landlord, tenant, arbiter] = await Promise.all([contract.landlord(), contract.tenant(), contract.arbiter()]);
+      const [landlord, tenant, arbiter] = await Promise.all([
+        contract.landlord(),
+        contract.tenant(),
+        contract.arbiter(),
+      ]);
 
       let role = "Viewer";
       if (userAddress === landlord.toLowerCase()) role = "Landlord";
       if (userAddress === tenant.toLowerCase()) role = "Tenant";
-      if(userAddress === arbiter.toLowerCase()) role = "Arbiter";
+      if (userAddress === arbiter.toLowerCase()) role = "Arbiter";
 
       if (role === "Viewer") {
         infoDiv.innerHTML = `
-          <h3>Contract loaded:</h3>
+          <h3>Contract loaded</h3>
           <p><strong>Your role:</strong> Viewer</p>
-          <p>You are not a participant of this contract, so details are hidden</p>
+          <p>You are not one of the participants recorded in this contract, so management actions stay hidden.</p>
         `;
         return;
       }
@@ -176,8 +191,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         rentAmount,
         depositAmount,
         contractIPFSHash,
-        isStabelcoinPayment,
-        stabelcoinAddress,
+        isStablecoinPayment,
+        stablecoinAddress,
         paymentDueDate,
         rentalStatus,
         contractEndDate,
@@ -206,12 +221,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       const fmtAmount = (amountBN) => {
         if (!amountBN) return "0";
-
-        if (isStabelcoinPayment) {
-          return ethers.utils.formatUnits(amountBN, 6); // USDC decimals
-        }
-
-        return ethers.utils.formatEther(amountBN); // ETH 18 decimals
+        if (isStablecoinPayment) return ethers.utils.formatUnits(amountBN, 6);
+        return ethers.utils.formatEther(amountBN);
       };
 
       const toDate = (ts) => {
@@ -221,127 +232,169 @@ window.addEventListener("DOMContentLoaded", async () => {
       };
 
       infoDiv.innerHTML = `
-        <h3>Contract loaded</h3>
+        <h3>Contract overview</h3>
         <p><strong>Your role:</strong> ${role}</p>
-        <p><strong>Address:</strong> ${contractAddress}</p>
+        <p><strong>Contract address:</strong> ${contractAddress}</p>
         <p><strong>Landlord:</strong> ${landlord}</p>
         <p><strong>Tenant:</strong> ${tenant}</p>
         <p><strong>Arbiter:</strong> ${arbiter}</p>
         <hr/>
-        <p><strong>Rent amount (USD):</strong> ${fmtAmount(rentAmount)}</p>
-        <p><strong>Deposit amount (USD):</strong> ${fmtAmount(depositAmount)}</p>
-        <p><strong>ETH/USD (1e8):</strong> ${supportsCurrentPrice ? currentPrice.toString() : "N/A (not in this contract version)"}</p>
-        <p><strong>Stablecoin payment:</strong> ${isStabelcoinPayment ? "Yes" : "No"}</p>
-        ${isStabelcoinPayment ? `<p><strong>Stablecoin address:</strong> ${stabelcoinAddress}</p>` : ""}
-        <p><strong>Payment day:</strong> ${paymentDueDate}</p>
+        <p><strong>Rent amount:</strong> ${fmtAmount(rentAmount)} ${isStablecoinPayment ? "USDC" : "ETH-equivalent value"}</p>
+        <p><strong>Deposit amount:</strong> ${fmtAmount(depositAmount)} ${isStablecoinPayment ? "USDC" : "ETH-equivalent value"}</p>
+        <p><strong>Payment mode:</strong> ${isStablecoinPayment ? "Stablecoin (USDC)" : "ETH"}</p>
+        ${isStablecoinPayment ? `<p><strong>Stablecoin address:</strong> ${stablecoinAddress}</p>` : ""}
+        <p><strong>Current ETH/USD oracle value:</strong> ${supportsCurrentPrice ? currentPrice.toString() : "N/A in this deployment"}</p>
+        <p><strong>Rent due day:</strong> ${paymentDueDate}</p>
         <p><strong>Status:</strong> ${rentalStatusText(rentalStatus)}</p>
         <p><strong>Renewal requested:</strong> ${renewalRequested ? "Yes" : "No"}</p>
         <p><strong>Lease start:</strong> ${toDate(leaseStartTimestamp)}</p>
         <p><strong>Contract end:</strong> ${toDate(contractEndDate)}</p>
-        <p><strong>Warnings:</strong> ${warningCount}</p>
-        <p><strong>Amount owed (wei):</strong> ${amountOwed.toString()}</p>
-        <p><strong>Deposit balance (wei):</strong> ${depositBalance.toString()}</p>
-        <p><strong>IPFS:</strong> ${contractIPFSHash}</p>
+        <p><strong>Warning count:</strong> ${warningCount}</p>
+        <p><strong>Amount owed (raw):</strong> ${amountOwed.toString()}</p>
+        <p><strong>Deposit balance (raw):</strong> ${depositBalance.toString()}</p>
+        <p><strong>IPFS hash:</strong> ${contractIPFSHash}</p>
       `;
 
-      // === UI ==========================================================
-      function btn(label, id) {
-        return `<button class="actionBtn" id="${id}">${label}</button>`;
+      function input(id, placeholder = "", type = "text") {
+        return `<input id="${id}" type="${type}" placeholder="${placeholder}" />`;
       }
-      function input(id, ph = "", type = "text") {
-        return `<input id="${id}" type="${type}" placeholder="${ph}" />`;
+
+      function btn(label, id, tone = "") {
+        const className = tone ? `actionBtn ${tone}` : "actionBtn";
+        return `<button class="${className}" id="${id}">${label}</button>`;
+      }
+
+      function actionCard({ title, description, controls }) {
+        return `
+          <div class="action-card">
+            <h4>${title}</h4>
+            <p>${description}</p>
+            <div class="action-card-controls">${controls}</div>
+          </div>
+        `;
       }
 
       let landlordUI = `
-        <h3>Landlord</h3>
-        ${renewalRequested ? btn("Approve renewal", "act_approveRenewal") : ""}
-        ${btn("Request warning", "act_reqWarn")}
-        ${btn("Confirm warning", "act_confirmWarn")}
-        ${btn("Check termination eligibility", "act_checkTerm")}
-        ${isStabelcoinPayment ? btn("Process auto payment", "act_processAuto") : ""}
-        ${btn("Execute termination", "act_execTerm")}
-        ${btn("Terminate if not renewed", "act_termIfNotRenewed")}
-        ${btn("Request early termination", "act_reqEarly")}
-        <div class="card">
-          <div><strong>Deduct from deposit (request)</strong></div>
-          ${input("deductUsd", "USD amount (integer)", "number")}
-          ${input("deductReason", "Reason")}
-          ${btn("Request deduction", "act_deduct")}
+        <div class="role-header">
+          <h3>Landlord actions</h3>
+          <p>These actions let the landlord enforce obligations, react to renewal flow, and manage the security deposit.</p>
         </div>
-        ${btn("Return deposit", "act_returnDeposit")}
+        ${renewalRequested ? actionCard({
+          title: "Approve contract renewal",
+          description: "Use this when the tenant has requested a renewal and you agree to extend the lease period.",
+          controls: btn("Approve renewal", "act_approveRenewal")
+        }) : ""}
+        ${actionCard({
+          title: "Issue breach warning",
+          description: "Request and then confirm a warning to formally record serious tenant misconduct in the contract lifecycle.",
+          controls: `${btn("Request warning", "act_reqWarn")}${btn("Confirm warning", "act_confirmWarn")}`
+        })}
+        ${actionCard({
+          title: "Evaluate or execute termination",
+          description: "Check whether termination conditions are satisfied and then finalize termination when appropriate.",
+          controls: `${btn("Check eligibility", "act_checkTerm")}${btn("Execute termination", "act_execTerm", "danger")}${btn("Terminate if not renewed", "act_termIfNotRenewed", "danger")}`
+        })}
+        ${isStablecoinPayment ? actionCard({
+          title: "Process automatic payment",
+          description: "Runs the stablecoin auto-payment flow when the tenant has previously approved it.",
+          controls: btn("Process auto payment", "act_processAuto")
+        }) : ""}
+        ${actionCard({
+          title: "Request early termination",
+          description: "Starts early termination from the landlord side before the normal contract end date.",
+          controls: btn("Request early termination", "act_reqEarly", "danger")
+        })}
+        ${actionCard({
+          title: "Request deposit deduction",
+          description: "Specify how much should be deducted from the deposit and explain the reason for arbiter review.",
+          controls: `${input("deductUsd", "USD amount", "number")}${input("deductReason", "Deduction reason")}${btn("Request deduction", "act_deduct")}`
+        })}
+        ${actionCard({
+          title: "Return remaining deposit",
+          description: "Sends the remaining security deposit back to the tenant when the lease is settled.",
+          controls: btn("Return deposit", "act_returnDeposit")
+        })}
       `;
 
       let tenantUI = `
-        <h3>Tenant</h3>
-        ${btn("Request renewal", "act_reqRenewal")}
-        ${btn("Confirm early termination", "act_confirmEarly")}
-        ${btn("Execute tenant termination", "act_execTenantTerm")}
-        ${btn("Request early termination", "act_earlyTermination")}
-        ${
-          isStabelcoinPayment
-            ? `<div class="card">
-                 <div><strong>Stablecoin allowance</strong></div>
-                 ${input("stableApproveAmount", "Amount to approve", "number")}
-                 ${btn("Set allowance", "act_stableApprove")}
-               </div>`
-            : ``
-        }
-        <div class="card">
-          <div><strong>Pay rent ${isStabelcoinPayment ? "(stablecoin)" : "(ETH)"}</strong></div>
-          ${btn("Pay rent", "act_payRent")}
+        <div class="role-header">
+          <h3>Tenant actions</h3>
+          <p>These controls cover payments, lease renewal, and early termination requests from the tenant perspective.</p>
         </div>
-        <div class="card">
-          <div><strong>Pay deposit ${isStabelcoinPayment ? "(stablecoin)" : "(ETH)"}</strong></div>
-          ${btn("Pay deposit", "act_payDeposit")}
-        </div>
-        ${
-          isStabelcoinPayment
-            ? `<div class="card">
-                 <div><strong>Auto-payment</strong></div>
-                 ${btn("Authorize", "act_autoOn")}
-                 ${btn("Revoke", "act_autoOff")}
-               </div>`
-            : ""
-        }
+        ${actionCard({
+          title: "Request contract renewal",
+          description: "Notifies the landlord that you want to continue the lease after the current term ends.",
+          controls: btn("Request renewal", "act_reqRenewal")
+        })}
+        ${actionCard({
+          title: "Early termination flow",
+          description: "Confirm a landlord request or initiate a tenant-side early termination if the lease should end sooner.",
+          controls: `${btn("Confirm landlord request", "act_confirmEarly")}${btn("Execute tenant termination", "act_execTenantTerm", "danger")}${btn("Request early termination", "act_earlyTermination", "danger")}`
+        })}
+        ${isStablecoinPayment ? actionCard({
+          title: "Stablecoin allowance",
+          description: "Approve how much USDC the contract may transfer from the tenant wallet before calling payment functions.",
+          controls: `${input("stableApproveAmount", "Allowance amount", "number")}${btn("Set allowance", "act_stableApprove")}`
+        }) : ""}
+        ${actionCard({
+          title: `Pay monthly rent ${isStablecoinPayment ? "in USDC" : "in ETH"}`,
+          description: "Sends the current rent payment and records it into the contract payment history.",
+          controls: btn("Pay rent", "act_payRent")
+        })}
+        ${actionCard({
+          title: `Pay security deposit ${isStablecoinPayment ? "in USDC" : "in ETH"}`,
+          description: "Transfers the required security deposit so it can remain locked until contract completion or deduction.",
+          controls: btn("Pay deposit", "act_payDeposit")
+        })}
+        ${isStablecoinPayment ? actionCard({
+          title: "Automatic payment permission",
+          description: "Allow or revoke recurring stablecoin auto-payment for future rent due dates.",
+          controls: `${btn("Authorize auto-payment", "act_autoOn")}${btn("Revoke auto-payment", "act_autoOff", "ghost")}`
+        }) : ""}
       `;
 
       let arbiterUI = `
-        <h3>Arbiter</h3>
-        <div class="card">
-          <div><strong>Deposit deduction request</strong></div>
-          ${input("arbReqId", "Deduction Request ID (0 = first)", "number")}
-          ${input("arbRejectionReason", "Rejection reason")}
-          ${btn("Show all requests", "act_showAllDeductions")}
-          ${btn("Show request", "act_showDeduction")}
-          ${btn("Approve", "act_approveDeduction")}
-          ${btn("Reject", "act_rejectDeduction")}
-
+        <div class="role-header">
+          <h3>Arbiter actions</h3>
+          <p>The arbiter evaluates landlord deduction requests and decides whether the deposit should actually be reduced.</p>
         </div>
+        ${actionCard({
+          title: "Review deduction requests",
+          description: "Inspect one request by ID or list all submitted requests, then approve or reject them with justification.",
+          controls: `${input("arbReqId", "Deduction request ID", "number")}${input("arbRejectionReason", "Reason for rejection")}${btn("Show all requests", "act_showAllDeductions", "ghost")}${btn("Show request", "act_showDeduction")}${btn("Approve request", "act_approveDeduction")}${btn("Reject request", "act_rejectDeduction", "danger")}`
+        })}
       `;
 
       let roleUI = "";
-      if(role === "Landlord") roleUI = landlordUI;
-      else if(role === "Tenant") roleUI = tenantUI;
-      else if(role === "Arbiter") roleUI = arbiterUI;
+      if (role === "Landlord") roleUI = landlordUI;
+      else if (role === "Tenant") roleUI = tenantUI;
+      else if (role === "Arbiter") roleUI = arbiterUI;
 
       actionsDiv.innerHTML =
-        roleUI + `<h3>General</h3>${btn("Show payment history", "act_history")}`;
+        roleUI +
+        `
+          <div class="role-header">
+            <h3>General contract tools</h3>
+            <p>These tools help inspect historical activity that has already been recorded on-chain.</p>
+          </div>
+          ${actionCard({
+            title: "View payment history",
+            description: "Shows all recorded rent and deposit transfers registered by this contract.",
+            controls: btn("Show payment history", "act_history", "ghost")
+          })}
+        `;
 
-      // === dráty =======================================================
-
-      // General
       document.getElementById("act_history")?.addEventListener("click", async () => {
         const recs = await contract.getPaymentHistory();
         const list = recs
           .map(
             (r) =>
-              `• ${new Date(Number(r.timestamp) * 1000).toLocaleString()} — ${r.amount.toString()} wei — ${r.stablecoin ? "stablecoin" : "ETH"}`
+              `- ${new Date(Number(r.timestamp) * 1000).toLocaleString()} | ${r.amount.toString()} wei | ${r.stablecoin ? "stablecoin" : "ETH"}`
           )
           .join("\n");
         alert(list || "No records yet.");
       });
 
-      // Landlord
       document.getElementById("act_reqWarn")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.requestWarning(), "Warning requested", async () => {
           const pending = await contract.pendingSevereBreachWarning();
@@ -358,7 +411,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
 
       document.getElementById("act_checkTerm")?.addEventListener("click", async () => {
-        // funkce nic nevrací – eligible poznáme podle eventu a nového stavu
         await sendTxAndAlert(contract.checkTermination(), "Termination evaluated", async () => {
           const status = await contract.rentalStatus();
           const ts = await contract.terminationTimeStamp();
@@ -367,10 +419,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
 
       document.getElementById("act_processAuto")?.addEventListener("click", async () => {
-        if (!isStabelcoinPayment) {
-          alert("ETH auto-payment was removed from this project.");
+        if (!isStablecoinPayment) {
+          alert("ETH auto-payment is not part of this project version.");
           return;
         }
+
         await sendTxAndAlert(contract.processAutoPayment(), "Auto payment processed", async () => {
           const owed = await contract.amountOwed();
           return `amountOwed=${owed.toString()}`;
@@ -401,15 +454,19 @@ window.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("act_deduct")?.addEventListener("click", async () => {
         const usd = (document.getElementById("deductUsd").value || "").trim();
         const reason = (document.getElementById("deductReason").value || "").trim();
-        if (!usd || Number(usd) <= 0) return alert("Enter USD amount.");
 
-        const usdAmount = isStabelcoinPayment
+        if (!usd || Number(usd) <= 0) {
+          alert("Enter USD amount.");
+          return;
+        }
+
+        const usdAmount = isStablecoinPayment
           ? ethers.utils.parseUnits(usd, 6)
           : ethers.utils.parseEther(usd);
 
         await sendTxAndAlert(
           contract.requestDeduction(usdAmount, reason, ""),
-          "Deposit deduction requested (waiting for approval)",
+          "Deposit deduction requested for arbiter review",
           async () => {
             const bal = await contract.depositBalance();
             const ded = await contract.deductedAmount();
@@ -425,7 +482,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
       });
 
-      // Tenant
       document.getElementById("act_reqRenewal")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.requestContractRenewal(), "Renewal requested", async () => {
           const req = await contract.renewalRequested();
@@ -470,7 +526,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_stableApprove")?.addEventListener("click", async () => {
         try {
-          if (!isStabelcoinPayment) {
+          if (!isStablecoinPayment) {
             alert("This contract is not in stablecoin mode.");
             return;
           }
@@ -482,13 +538,13 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
 
           const tokenAbi = await fetch("abi/MockERC20.abi.json").then((r) => r.json());
-          const token = new ethers.Contract(stabelcoinAddress, tokenAbi, signer);
+          const token = new ethers.Contract(stablecoinAddress, tokenAbi, signer);
           const decimals = Number(await token.decimals());
           const approveAmount = ethers.utils.parseUnits(rawAmount, decimals);
 
           await sendTxAndAlert(
             token.approve(contract.address, approveAmount),
-            "Stablecoin allowance set",
+            "Stablecoin allowance updated",
             async () => {
               const allowance = await token.allowance(await signer.getAddress(), contract.address);
               return `allowance=${allowance.toString()}`;
@@ -500,11 +556,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       });
 
-
-      // Tenant — payments
       document.getElementById("act_payRent")?.addEventListener("click", async () => {
         try {
-          if (isStabelcoinPayment) {
+          if (isStablecoinPayment) {
             await sendTxAndAlert(contract.payRent(), "Rent paid (stablecoin)", async () => {
               const owed = await contract.amountOwed();
               const len = (await contract.getPaymentHistory()).length;
@@ -514,21 +568,14 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
 
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const landlordAddr = landlord; // z horního scope
           const required = await contract.quoteRentInWei();
-
-          const beforeL = await provider.getBalance(landlordAddr);
-          console.log(`[RENT ETH] sending ${ethers.utils.formatEther(required)} ETH to landlord ${landlordAddr}`);
-          console.log(`[RENT ETH] landlord BEFORE = ${ethers.utils.formatEther(beforeL)} ETH`);
+          const beforeL = await provider.getBalance(landlord);
 
           await sendTxAndAlert(contract.payRent({ value: required }), "Rent paid (ETH)", async () => {
-            const afterL = await provider.getBalance(landlordAddr);
-            console.log(`[RENT ETH] landlord AFTER  = ${ethers.utils.formatEther(afterL)} ETH`);
-            console.log(`[RENT ETH] Δ landlord     = +${ethers.utils.formatEther(afterL.sub(beforeL))} ETH`);
-
+            const afterL = await provider.getBalance(landlord);
             const owed = await contract.amountOwed();
             const len = (await contract.getPaymentHistory()).length;
-            return `amountOwed=${owed.toString()}\npaymentHistoryCount=${len}\nlandlordΔ=${ethers.utils.formatEther(afterL.sub(beforeL))} ETH`;
+            return `amountOwed=${owed.toString()}\npaymentHistoryCount=${len}\nlandlordDelta=${ethers.utils.formatEther(afterL.sub(beforeL))} ETH`;
           });
         } catch (err) {
           console.error("[RENT ETH] error:", err);
@@ -538,7 +585,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_payDeposit")?.addEventListener("click", async () => {
         try {
-          if (isStabelcoinPayment) {
+          if (isStablecoinPayment) {
             await sendTxAndAlert(contract.payDeposit(), "Deposit paid (stablecoin)", async () => {
               const bal = await contract.depositBalance();
               return `depositBalance=${bal.toString()}`;
@@ -547,20 +594,13 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
 
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const contractAddr = contract.address;
           const required = await contract.quoteDepositInWei();
-
-          const beforeC = await provider.getBalance(contractAddr);
-          console.log(`[DEPOSIT ETH] sending ${ethers.utils.formatEther(required)} ETH to contract ${contractAddr}`);
-          console.log(`[DEPOSIT ETH] contract BEFORE = ${ethers.utils.formatEther(beforeC)} ETH`);
+          const beforeC = await provider.getBalance(contract.address);
 
           await sendTxAndAlert(contract.payDeposit({ value: required }), "Deposit paid (ETH)", async () => {
-            const afterC = await provider.getBalance(contractAddr);
-            console.log(`[DEPOSIT ETH] contract AFTER  = ${ethers.utils.formatEther(afterC)} ETH`);
-            console.log(`[DEPOSIT ETH] Δ contract      = +${ethers.utils.formatEther(afterC.sub(beforeC))} ETH`);
-
+            const afterC = await provider.getBalance(contract.address);
             const bal = await contract.depositBalance();
-            return `depositBalance=${bal.toString()}\ncontractΔ=${ethers.utils.formatEther(afterC.sub(beforeC))} ETH`;
+            return `depositBalance=${bal.toString()}\ncontractDelta=${ethers.utils.formatEther(afterC.sub(beforeC))} ETH`;
           });
         } catch (err) {
           console.error("[DEPOSIT ETH] error:", err);
@@ -568,7 +608,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       });
 
-      //Landlord – approve renewal
       document.getElementById("act_approveRenewal")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.approveContractRenewal(), "Renewal approved", async () => {
           const end = await contract.contractEndDate();
@@ -576,7 +615,6 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
       });
 
-      //Arbiter
       document.getElementById("act_showAllDeductions")?.addEventListener("click", async () => {
         try {
           let reqs = [];
@@ -584,7 +622,6 @@ window.addEventListener("DOMContentLoaded", async () => {
           if (typeof contract.getAllDeductionRequests === "function") {
             reqs = await contract.getAllDeductionRequests();
           } else {
-            // Backward compatibility for older deployments without getAllDeductionRequests()
             for (let i = 0; i < 1000; i++) {
               try {
                 const req = await contract.deductionRequests(i);
@@ -600,8 +637,9 @@ window.addEventListener("DOMContentLoaded", async () => {
             return;
           }
 
-          const lines = reqs.map((req, id) =>
-            `#${id} | amount=${req.amount.toString()} USD | approved=${req.approval} | rejected=${req.rejected} | reason="${req.reason}" | rejectionReason="${req.rejectionReason}"`
+          const lines = reqs.map(
+            (req, id) =>
+              `#${id} | amount=${req.amount.toString()} USD | approved=${req.approval} | rejected=${req.rejected} | reason="${req.reason}" | rejectionReason="${req.rejectionReason}"`
           );
           alert(lines.join("\n"));
         } catch (e) {
@@ -624,25 +662,27 @@ window.addEventListener("DOMContentLoaded", async () => {
             `Request #${id}\n` +
             `amount (USD): ${req.amount.toString()}\n` +
             `reason: ${req.reason}\n` +
-            `approved: ${req.approval}\n` + 
-            `rejected: ${req.rejected}\n` + 
-            `Reason for rejection: ${req.rejectionReason}` 
+            `approved: ${req.approval}\n` +
+            `rejected: ${req.rejected}\n` +
+            `reason for rejection: ${req.rejectionReason}`
           );
         } catch (e) {
           console.error(e);
-          alert("Cannot read request - invalid ID (first request is ID 0).");
+          alert("Cannot read request. The ID may be invalid.");
         }
       });
 
       document.getElementById("act_approveDeduction")?.addEventListener("click", async () => {
         const idRaw = document.getElementById("arbReqId").value;
         const id = Number(idRaw);
-        if (!Number.isInteger(id) || id < 0)
-          return alert("Enter valid request ID");
+        if (!Number.isInteger(id) || id < 0) {
+          alert("Enter valid request ID.");
+          return;
+        }
 
         await sendTxAndAlert(
           contract.approveDeduction(id),
-          "Deduction approved by Arbiter",
+          "Deduction approved by arbiter",
           async () => {
             const req = await contract.deductionRequests(id);
             const bal = await contract.depositBalance();
@@ -656,13 +696,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("act_rejectDeduction")?.addEventListener("click", async () => {
         const idRaw = document.getElementById("arbReqId").value;
         const id = Number(idRaw);
-        if (!Number.isInteger(id) || id < 0) 
-          return alert("Enter valid ID");
+        if (!Number.isInteger(id) || id < 0) {
+          alert("Enter valid request ID.");
+          return;
+        }
 
         const reason = (document.getElementById("arbRejectionReason").value || "").trim();
-        if(!reason) {
-          if(!confirm("No rejection reason entered. Reject anyway?"))
-            return;
+        if (!reason && !confirm("No rejection reason entered. Reject anyway?")) {
+          return;
         }
 
         await sendTxAndAlert(
@@ -680,7 +721,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       });
     } catch (err) {
       console.error(err);
-      infoDiv.innerHTML = `<p style="color:red;">Error: ${err.message || err}</p>`;
+      infoDiv.innerHTML = `<p class="status-text error">Error: ${err.message || err}</p>`;
+    } finally {
+      loadBtn.disabled = false;
+      loadBtn.textContent = "Load contract";
     }
   });
 });

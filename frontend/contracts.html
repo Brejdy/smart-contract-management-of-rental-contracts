@@ -8,19 +8,35 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-  <nav>
+  <nav class="top-nav">
     <a href="index.html">New contract</a>
     <a href="contracts.html">Existing contracts</a>
   </nav>
 
-  <h1>Existing contracts</h1>
+  <header class="hero">
+    <p class="eyebrow">Contract operations</p>
+    <h1>Inspect and manage an existing lease</h1>
+    <p class="hero-text">
+      Load a deployed rental agreement and the interface will reveal detailed contract information
+      plus the actions that belong to the connected wallet role.
+    </p>
+  </header>
 
   <div class="bodydiv">
     <div class="deployForm">
+      <div class="section-intro">
+        <h2>Load deployed contract</h2>
+        <p>
+          Enter the address of a previously deployed lease contract on the local Hardhat network.
+          After loading, the page shows landlord, tenant, or arbiter controls with short guidance.
+        </p>
+      </div>
+
       <label for="contractAddress">Contract address:</label>
       <input type="text" id="contractAddress" placeholder="0xabc..." />
-      <button id="loadContract">Load Contract</button>
-      <p id="networkNote" style="color:#777; font-size: 0.9em;"></p>
+      <small>Use the address returned by deployment or stored in the generated ABI/address artifacts.</small>
+      <button id="loadContract">Load contract</button>
+      <p id="networkNote" class="network-note"></p>
     </div>
     <div class="contract-details">
       <div class="contract-info" id="contractInfo"></div>

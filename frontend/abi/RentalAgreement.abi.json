@@ -316,7 +316,7 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "tennat",
+        "name": "tenant",
         "type": "address"
       },
       {

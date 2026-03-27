@@ -3,6 +3,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("deployForm");
   const contractAddressDisplay = document.getElementById("contractAddress");
+  const deployButton = document.getElementById("deployButton");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -17,10 +18,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!ethers.utils.isAddress(tenantAddress) || !ethers.utils.isAddress(arbiterAddress)) {
       contractAddressDisplay.textContent = "Invalid tenant or arbiter address.";
+      contractAddressDisplay.className = "status-text error";
       return;
     }
 
     try {
+      deployButton.disabled = true;
+      deployButton.textContent = "Deploying...";
+      contractAddressDisplay.textContent = "Preparing deployment. Confirm the transaction in your wallet.";
+      contractAddressDisplay.className = "status-text";
+
       await window.ethereum.request({ method: "eth_requestAccounts" });
       const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
       const signer = provider.getSigner();
@@ -63,12 +70,21 @@ document.addEventListener("DOMContentLoaded", () => {
         paymentDay
       );
 
+      contractAddressDisplay.textContent = "Transaction submitted. Waiting for the contract deployment to be mined...";
       await contract.deployed();
-      contractAddressDisplay.textContent = "Deployed to: " + contract.address;
+      contractAddressDisplay.textContent =
+        "Contract deployed successfully. Address: " +
+        contract.address +
+        ". Open the Existing contracts page to inspect or manage it.";
+      contractAddressDisplay.className = "status-text success";
       console.log("Contract deployed at:", contract.address);
     } catch (error) {
       console.error("Error during deployment:", error);
       contractAddressDisplay.textContent = "Deployment failed: " + (error?.message || error);
+      contractAddressDisplay.className = "status-text error";
+    } finally {
+      deployButton.disabled = false;
+      deployButton.textContent = "Deploy contract";
     }
   });
 });
