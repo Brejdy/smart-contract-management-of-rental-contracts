@@ -72,6 +72,16 @@ describe("RentalAgreement", function () {
     return deployFixture({ stable: true, paymentDueDate: 1 });
   }
 
+  async function moveToCurrentMonthDueDate(rental) {
+    const [, dueNow, , periodKey] = await rental.getAutoPaymentStatus();
+    if (dueNow) {
+      return periodKey;
+    }
+
+    await time.increaseTo(Number(periodKey));
+    return periodKey;
+  }
+
   describe("Deployment & Read Functions", function () {
     // Verifies constructor wiring + default status values.
     it("sets constructor fields correctly", async function () {
@@ -118,8 +128,11 @@ describe("RentalAgreement", function () {
 
       await stablecoin.connect(tenant).approve(rental.target, rentAmount);
       const landlordBefore = await stablecoin.balanceOf(landlord.address);
+      const periodKey = await moveToCurrentMonthDueDate(rental);
 
-      await expect(rental.connect(tenant).processAutoPayment()).to.emit(rental, "RentPaid");
+      await expect(rental.connect(landlord).processAutoPayment())
+        .to.emit(rental, "AutoPaymentProcessed")
+        .withArgs(landlord.address, tenant.address, rentAmount, periodKey);
 
       expect(await stablecoin.balanceOf(landlord.address)).to.equal(landlordBefore + rentAmount);
       const history = await rental.connect(tenant).getPaymentHistory();
@@ -136,6 +149,43 @@ describe("RentalAgreement", function () {
       const { rental, tenant } = await loadFixture(deployEthFixture);
       await expect(rental.connect(tenant).processAutoPayment()).to.be.revertedWith(
         "Auto-payment is available only for stablecoin mode"
+      );
+    });
+
+    it("requires tenant approval before stablecoin auto-payment", async function () {
+      const { rental, stablecoin, landlord, tenant, rentAmount } = await loadFixture(deployStableFixture);
+
+      await stablecoin.connect(tenant).approve(rental.target, rentAmount);
+      await moveToCurrentMonthDueDate(rental);
+
+      await expect(rental.connect(landlord).processAutoPayment()).to.be.revertedWith(
+        "Auto-payment is not approved"
+      );
+    });
+
+    it("requires due date before stablecoin auto-payment", async function () {
+      const { rental, stablecoin, landlord, tenant, rentAmount } = await loadFixture(deployStableFixture);
+
+      await rental.connect(tenant).authorizeAutoPayment();
+      await stablecoin.connect(tenant).approve(rental.target, rentAmount);
+
+      await expect(rental.connect(landlord).processAutoPayment()).to.be.revertedWith(
+        "Auto-payment is not due"
+      );
+    });
+
+    it("processes only once per billing period", async function () {
+      const { rental, stablecoin, landlord, tenant, rentAmount } = await loadFixture(deployStableFixture);
+
+      await rental.connect(tenant).authorizeAutoPayment();
+      await stablecoin.connect(tenant).approve(rental.target, rentAmount * 2n);
+      const periodKey = await moveToCurrentMonthDueDate(rental);
+
+      await rental.connect(landlord).processAutoPayment();
+      expect(await rental.lastAutoPaymentPeriod()).to.equal(periodKey);
+
+      await expect(rental.connect(landlord).processAutoPayment()).to.be.revertedWith(
+        "Auto-payment is not due"
       );
     });
   });

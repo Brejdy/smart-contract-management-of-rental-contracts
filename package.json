@@ -6,6 +6,7 @@
     "test": "hardhat test test/RentalAgreement.test.js",
     "node": "hardhat node",
     "deploy": "hardhat compile && hardhat run scripts/deployRental.js --network localhost",
+    "keeper": "hardhat run scripts/keeper.js --network localhost",
     "frontend": "serve frontend -l 3000",
     "dev": "concurrently \"npm run node\" \"sleep 3 && npm run deploy\" \"npm run frontend\""
   },

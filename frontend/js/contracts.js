@@ -97,6 +97,11 @@ window.addEventListener("DOMContentLoaded", async () => {
         lines.push("Auto-payment approved.");
       } else if (name === "AutoPaymentRevoked") {
         lines.push("Auto-payment revoked.");
+      } else if (name === "AutoPaymentProcessed") {
+        const [triggeredBy, tenant, amount, periodKey] = args;
+        lines.push(
+          `AutoPaymentProcessed: ${humanAmount(amount)} stablecoin | tenant=${short(tenant)} | by=${short(triggeredBy)} | period=${periodKey.toString()}`
+        );
       } else {
         const pretty = Object.entries(args)
           .filter(([k]) => !/^\d+$/.test(k))

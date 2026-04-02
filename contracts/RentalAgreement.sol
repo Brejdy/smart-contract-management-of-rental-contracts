@@ -32,6 +32,7 @@ contract RentalAgreement is ReentrancyGuard {
     bool public renewalRequested;
     bool public renewalApproved;
     mapping(address => bool) public autoPaymentApproved;
+    uint256 public lastAutoPaymentPeriod;
     bool public earlyTerminationRequestedByLandlord;
 
     enum RentalStatus {
@@ -99,6 +100,12 @@ contract RentalAgreement is ReentrancyGuard {
     event ExcesRentReturned(address indexed tenant, uint amount);
     event AutoPaymentApproved(address indexed tenant);
     event AutoPaymentRevoked(address indexed tanant);
+    event AutoPaymentProcessed(
+        address indexed triggeredBy,
+        address indexed tenant,
+        uint256 amount,
+        uint256 periodKey
+    );
     event EarlyTerminationRequestedByLandlord();
 
     modifier onlyLandlord() {
@@ -201,28 +208,71 @@ contract RentalAgreement is ReentrancyGuard {
         emit AutoPaymentRevoked(tenant);
     }
 
-    function processAutoPayment() external onlyTenant {
-        require(isStabelcoinPayment, "Auto-payment is available only for stablecoin mode");
-        uint256 rentWei;
+    function getAutoPaymentStatus()
+        public
+        view
+        returns (
+            bool approved,
+            bool dueNow,
+            bool ready,
+            uint256 periodKey,
+            uint256 nextDueTimestamp,
+            uint256 allowance
+        )
+    {
+        nextDueTimestamp = DateUtils.getNextPaymentTimestamp(paymentDueDate);
 
-        rentWei = rentAmount;
+        if (!isStabelcoinPayment) {
+            return (false, false, false, 0, nextDueTimestamp, 0);
+        }
+
+        approved = autoPaymentApproved[tenant];
+        periodKey = DateUtils.getCurrentPaymentTimestamp(paymentDueDate);
+        dueNow = block.timestamp >= periodKey && lastAutoPaymentPeriod < periodKey;
+        allowance = IERC20(stabelcoinAddress).allowance(tenant, address(this));
+        ready =
+            approved &&
+            dueNow &&
+            allowance >= rentAmount &&
+            rentalStatus == RentalStatus.Active;
+    }
+
+    function processAutoPayment() external nonReentrant {
+        require(isStabelcoinPayment, "Auto-payment is available only for stablecoin mode");
+
+        (
+            bool approved,
+            bool dueNow,
+            bool ready,
+            uint256 periodKey,
+            ,
+            uint256 allowance
+        ) = getAutoPaymentStatus();
+
+        require(approved, "Auto-payment is not approved");
+        require(dueNow, "Auto-payment is not due");
+        require(rentalStatus == RentalStatus.Active, "Rental contract is not active");
+        require(allowance >= rentAmount, "Insufficient allowance");
+        require(ready, "Auto-payment is not ready");
+
+        uint256 rentWei = rentAmount;
 
         require(
-            IERC20(stabelcoinAddress).allowance(tenant, address(this)) >= rentWei,
-            "Insufficient allowance"
+            IERC20(stabelcoinAddress).transferFrom(tenant, landlord, rentWei),
+            "Stablecoin auto-payment failed"
         );
 
-        IERC20(stabelcoinAddress).transferFrom(
-            tenant,
-            landlord,
-            rentWei
-        );
+        lastAutoPaymentPeriod = periodKey;
+        paymentHistory.push(PaymentRecord(uint48(block.timestamp), rentWei, true));
 
-        paymentHistory.push(PaymentRecord(uint48(block.timestamp), rentWei, isStabelcoinPayment));
+        if (amountOwed <= rentWei) {
+            delete amountOwed;
+        } else {
+            amountOwed = amountOwed - rentWei;
+        }
 
-        checkAndUpdateNextPayment();
-        
-        emit RentPaid(tenant, rentWei, isStabelcoinPayment);
+        emit AutoPaymentProcessed(msg.sender, tenant, rentWei, periodKey);
+        emit RentPaid(tenant, rentWei, true);
     }
 
     function checkAndUpdateNextPayment() public onlyParticipants {

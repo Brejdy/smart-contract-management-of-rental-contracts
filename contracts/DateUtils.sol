@@ -92,4 +92,12 @@ library DateUtils {
             return toTimestamp(ny, nm, targetDay);
         }
     }
+
+    function getCurrentPaymentTimestamp(uint paymentDueDate) internal view returns (uint256) {
+        uint y = currentYear();
+        uint m = currentMonth();
+        uint dimThis = getDaysInMonth(y, m);
+        uint targetDay = paymentDueDate > dimThis ? dimThis : paymentDueDate;
+        return toTimestamp(y, m, targetDay);
+    }
 }

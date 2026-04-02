@@ -3,7 +3,7 @@
 A demo project for a smart rental agreement with:
 - rent and deposit payments in `ETH` or `stablecoin (mUSDC)`,
 - `landlord / tenant / arbiter` roles,
-- stablecoin auto-payments (manual trigger),
+- stablecoin auto-payments (manual trigger or local keeper robot),
 - a simple web UI for interaction.
 
 ## 1. Requirements
@@ -70,6 +70,17 @@ Open:
 - `http://127.0.0.1:5500/index.html` (new contract)
 - `http://127.0.0.1:5500/contracts.html` (existing contracts)
 
+### Optional Terminal D: stablecoin auto-payment robot
+
+```bash
+npx hardhat run scripts/keeper.js --network localhost
+```
+
+The keeper script:
+- watches only the `stable` contract address from `frontend/abi/RentalAgreement.addresses.json`,
+- checks whether stablecoin auto-payment is approved, due, and sufficiently funded,
+- triggers `processAutoPayment()` automatically when the monthly payment becomes due.
+
 ## 4. MetaMask Setup for Demo
 
 ### Network
@@ -99,6 +110,7 @@ Import private keys from the `npx hardhat node` output (Terminal A) into MetaMas
    - tenant: `Pay deposit`, `Pay rent`, `Authorize/Revoke auto-payment`,
    - landlord: `Request warning`, `Confirm warning`, `Process auto payment` (stablecoin only),
    - arbiter: deduction request approval/rejection.
+5. For the stablecoin contract, start `scripts/keeper.js` and show that after tenant authorization and allowance setup, the robot can execute the due payment automatically.
 
 ## 6. Useful Commands
 
@@ -110,6 +122,11 @@ npx hardhat compile
 Redeploy:
 ```bash
 npx hardhat run scripts/deployRental.js --network localhost
+```
+
+Run stablecoin keeper:
+```bash
+npx hardhat run scripts/keeper.js --network localhost
 ```
 
 ## 7. Common Issues
@@ -124,6 +141,11 @@ npx hardhat run scripts/deployRental.js --network localhost
 
 - Stablecoin transactions fail with `allowance` error:
   - Tenant must call `Set allowance` first.
+
+- Stablecoin auto-payment does not trigger:
+  - Confirm you loaded the `stable` contract address, not the `eth` one.
+  - Tenant must call both `Set allowance` and `Authorize auto-payment`.
+  - The keeper executes only when the configured payment day for the current month is due.
 
 ## 8. Project Structure
 
