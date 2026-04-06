@@ -7,11 +7,33 @@ describe("RentalAgreement", function () {
   const FEED_PRICE = ethers.parseUnits("2000", FEED_DECIMALS); // 2000 USD / ETH scaled by 1e8
   const STABLE_DECIMALS = 6;
 
+  async function getStablePreDueTimestamp() {
+    const latest = Number(await time.latest());
+    const current = new Date(latest * 1000);
+    let year = current.getUTCFullYear();
+    let month = current.getUTCMonth();
+
+    let candidate = Math.floor(Date.UTC(year, month, 2, 12, 0, 0) / 1000);
+    if (candidate <= latest) {
+      month += 1;
+      if (month === 12) {
+        month = 0;
+        year += 1;
+      }
+      candidate = Math.floor(Date.UTC(year, month, 2, 12, 0, 0) / 1000);
+    }
+
+    return candidate;
+  }
+
   // Generic deploy helper:
   // - deploys mock price feed
   // - deploys mock stablecoin
   // - deploys RentalAgreement in either stable or ETH mode
-  async function deployFixture({ stable = true, paymentDueDate = 5 } = {}) {
+  async function deployFixture({ stable = true, paymentDueDate = 5, initialTimestamp } = {}) {
+    const deploymentTimestamp = initialTimestamp ?? await getStablePreDueTimestamp();
+    await time.setNextBlockTimestamp(deploymentTimestamp);
+
     const [landlord, tenant, arbiter, outsider] = await ethers.getSigners();
 
     const MockV3Aggregator = await ethers.getContractFactory("MockV3Aggregator");

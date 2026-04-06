@@ -118,7 +118,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const tx = await actionPromise;
       const receipt = await tx.wait();
-      const extraEvents = (await (typeof postReadFn === "function" ? postReadFn() : null)) || "";
+      let extraEvents = "";
+      if (typeof postReadFn === "function") {
+        try {
+          extraEvents = (await postReadFn()) || "";
+        } catch (postReadErr) {
+          console.warn("Post-transaction state read failed; continuing without extra state details.", postReadErr);
+          extraEvents = "Additional state details are not available in this deployment.";
+        }
+      }
       const fallbackEvents =
         receipt && receipt.logs
           ? summarizeEvents(
@@ -144,7 +152,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       alert(msg);
     } catch (err) {
       console.error(err);
-      alert(`Error: ${err && err.data && err.data.message ? err.data.message : (err.message || err)}`);
+      const isMissingMethod =
+        err?.code === "CALL_EXCEPTION" &&
+        (err?.data === "0x" || err?.error?.data === "0x");
+      const message = isMissingMethod
+        ? `This function is not supported by the loaded contract deployment.${err?.method ? ` (${err.method})` : ""}`
+        : (err?.data?.message ?? err?.message ?? err);
+      alert(`Error: ${message}`);
     }
   }
 
@@ -169,8 +183,30 @@ window.addEventListener("DOMContentLoaded", async () => {
       const contract = new ethers.Contract(contractAddress, abi, signer);
       window.__lastLoadedContract = contract;
 
-      const hasMethod = (name) => typeof contract[name] === "function";
-      const supportsCurrentPrice = hasMethod("currentEthUsdPrice");
+      const optionalRead = async (reader, fallback = null) => {
+        try {
+          return await reader();
+        } catch (err) {
+          console.warn("Optional contract read failed; using fallback.", err);
+          return fallback;
+        }
+      };
+
+      const quoteEthAmount = async (quoteReader, amountReader) => {
+        const directQuote = await optionalRead(quoteReader);
+        if (directQuote != null) return directQuote;
+
+        const [usdAmount, ethUsdPrice] = await Promise.all([
+          amountReader(),
+          optionalRead(() => contract.getLatestPrice()),
+        ]);
+
+        if (ethUsdPrice == null) {
+          throw new Error("This contract deployment does not expose an ETH quote helper or readable oracle price.");
+        }
+
+        return usdAmount.mul(ethers.BigNumber.from("100000000")).div(ethUsdPrice);
+      };
 
       const [landlord, tenant, arbiter] = await Promise.all([
         contract.landlord(),
@@ -220,9 +256,18 @@ window.addEventListener("DOMContentLoaded", async () => {
         contract.warningCount(),
         contract.amountOwed(),
         contract.depositBalance(),
-        supportsCurrentPrice ? contract.currentEthUsdPrice() : ethers.constants.Zero,
-        contract.renewalRequested(),
+        optionalRead(() => contract.currentEthUsdPrice()),
+        optionalRead(() => contract.renewalRequested(), null),
       ]);
+
+      const supportsRenewal = renewalRequested != null;
+      const supportsAutoPayment = isStablecoinPayment
+        ? (await optionalRead(() => contract.autoPaymentApproved(userAddress), null)) != null
+        : false;
+      const supportsEarlyLandlordTermination = (await optionalRead(
+        () => contract.earlyTerminationRequestedByLandlord(),
+        null
+      )) != null;
 
       const fmtAmount = (amountBN) => {
         if (!amountBN) return "0";
@@ -248,10 +293,10 @@ window.addEventListener("DOMContentLoaded", async () => {
         <p><strong>Deposit amount:</strong> ${fmtAmount(depositAmount)} ${isStablecoinPayment ? "USDC" : "ETH-equivalent value"}</p>
         <p><strong>Payment mode:</strong> ${isStablecoinPayment ? "Stablecoin (USDC)" : "ETH"}</p>
         ${isStablecoinPayment ? `<p><strong>Stablecoin address:</strong> ${stablecoinAddress}</p>` : ""}
-        <p><strong>Current ETH/USD oracle value:</strong> ${supportsCurrentPrice ? currentPrice.toString() : "N/A in this deployment"}</p>
+        <p><strong>Current ETH/USD oracle value:</strong> ${currentPrice != null ? currentPrice.toString() : "N/A in this deployment"}</p>
         <p><strong>Rent due day:</strong> ${paymentDueDate}</p>
         <p><strong>Status:</strong> ${rentalStatusText(rentalStatus)}</p>
-        <p><strong>Renewal requested:</strong> ${renewalRequested ? "Yes" : "No"}</p>
+        <p><strong>Renewal requested:</strong> ${supportsRenewal ? (renewalRequested ? "Yes" : "No") : "N/A in this deployment"}</p>
         <p><strong>Lease start:</strong> ${toDate(leaseStartTimestamp)}</p>
         <p><strong>Contract end:</strong> ${toDate(contractEndDate)}</p>
         <p><strong>Warning count:</strong> ${warningCount}</p>
@@ -284,7 +329,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           <h3>Landlord actions</h3>
           <p>These actions let the landlord enforce obligations, react to renewal flow, and manage the security deposit.</p>
         </div>
-        ${renewalRequested ? actionCard({
+        ${supportsRenewal && renewalRequested ? actionCard({
           title: "Approve contract renewal",
           description: "Use this when the tenant has requested a renewal and you agree to extend the lease period.",
           controls: btn("Approve renewal", "act_approveRenewal")
@@ -299,16 +344,16 @@ window.addEventListener("DOMContentLoaded", async () => {
           description: "Check whether termination conditions are satisfied and then finalize termination when appropriate.",
           controls: `${btn("Check eligibility", "act_checkTerm")}${btn("Execute termination", "act_execTerm", "danger")}${btn("Terminate if not renewed", "act_termIfNotRenewed", "danger")}`
         })}
-        ${isStablecoinPayment ? actionCard({
+        ${isStablecoinPayment && supportsAutoPayment ? actionCard({
           title: "Process automatic payment",
           description: "Runs the stablecoin auto-payment flow when the tenant has previously approved it.",
           controls: btn("Process auto payment", "act_processAuto")
         }) : ""}
-        ${actionCard({
+        ${supportsEarlyLandlordTermination ? actionCard({
           title: "Request early termination",
           description: "Starts early termination from the landlord side before the normal contract end date.",
           controls: btn("Request early termination", "act_reqEarly", "danger")
-        })}
+        }) : ""}
         ${actionCard({
           title: "Request deposit deduction",
           description: "Specify how much should be deducted from the deposit and explain the reason for arbiter review.",
@@ -326,11 +371,11 @@ window.addEventListener("DOMContentLoaded", async () => {
           <h3>Tenant actions</h3>
           <p>These controls cover payments, lease renewal, and early termination requests from the tenant perspective.</p>
         </div>
-        ${actionCard({
+        ${supportsRenewal ? actionCard({
           title: "Request contract renewal",
           description: "Notifies the landlord that you want to continue the lease after the current term ends.",
           controls: btn("Request renewal", "act_reqRenewal")
-        })}
+        }) : ""}
         ${actionCard({
           title: "Early termination flow",
           description: "Confirm a landlord request or initiate a tenant-side early termination if the lease should end sooner.",
@@ -351,7 +396,7 @@ window.addEventListener("DOMContentLoaded", async () => {
           description: "Transfers the required security deposit so it can remain locked until contract completion or deduction.",
           controls: btn("Pay deposit", "act_payDeposit")
         })}
-        ${isStablecoinPayment ? actionCard({
+        ${isStablecoinPayment && supportsAutoPayment ? actionCard({
           title: "Automatic payment permission",
           description: "Allow or revoke recurring stablecoin auto-payment for future rent due dates.",
           controls: `${btn("Authorize auto-payment", "act_autoOn")}${btn("Revoke auto-payment", "act_autoOff", "ghost")}`
@@ -451,7 +496,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_reqEarly")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.requestEarlyTerminationByLandLord(), "Early termination requested", async () => {
-          const flag = await contract.earlyTerminationRequestedByLandlord();
+          const flag = await optionalRead(() => contract.earlyTerminationRequestedByLandlord(), "unavailable");
           return `earlyTerminationRequestedByLandlord=${flag}`;
         });
       });
@@ -489,7 +534,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_reqRenewal")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.requestContractRenewal(), "Renewal requested", async () => {
-          const req = await contract.renewalRequested();
+          const req = await optionalRead(() => contract.renewalRequested(), "unavailable");
           return `renewalRequested=${req}`;
         });
       });
@@ -517,14 +562,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_autoOn")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.authorizeAutoPayment(), "Auto-payment authorized", async () => {
-          const ok = await contract.autoPaymentApproved(await signer.getAddress());
+          const ok = await optionalRead(async () => contract.autoPaymentApproved(await signer.getAddress()), "unavailable");
           return `autoPaymentApproved=${ok}`;
         });
       });
 
       document.getElementById("act_autoOff")?.addEventListener("click", async () => {
         await sendTxAndAlert(contract.revokeAutoPayment(), "Auto-payment revoked", async () => {
-          const ok = await contract.autoPaymentApproved(await signer.getAddress());
+          const ok = await optionalRead(async () => contract.autoPaymentApproved(await signer.getAddress()), "unavailable");
           return `autoPaymentApproved=${ok}`;
         });
       });
@@ -573,7 +618,10 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
 
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const required = await contract.quoteRentInWei();
+          const required = await quoteEthAmount(
+            () => contract.quoteRentInWei(),
+            () => contract.rentAmount()
+          );
           const beforeL = await provider.getBalance(landlord);
 
           await sendTxAndAlert(contract.payRent({ value: required }), "Rent paid (ETH)", async () => {
@@ -599,7 +647,10 @@ window.addEventListener("DOMContentLoaded", async () => {
           }
 
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const required = await contract.quoteDepositInWei();
+          const required = await quoteEthAmount(
+            () => contract.quoteDepositInWei(),
+            () => contract.depositAmount()
+          );
           const beforeC = await provider.getBalance(contract.address);
 
           await sendTxAndAlert(contract.payDeposit({ value: required }), "Deposit paid (ETH)", async () => {
@@ -622,11 +673,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("act_showAllDeductions")?.addEventListener("click", async () => {
         try {
-          let reqs = [];
+          let reqs = await optionalRead(() => contract.getAllDeductionRequests(), null);
 
-          if (typeof contract.getAllDeductionRequests === "function") {
-            reqs = await contract.getAllDeductionRequests();
-          } else {
+          if (reqs == null) {
+            reqs = [];
             for (let i = 0; i < 1000; i++) {
               try {
                 const req = await contract.deductionRequests(i);

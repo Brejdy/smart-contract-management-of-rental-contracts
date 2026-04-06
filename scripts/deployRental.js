@@ -87,6 +87,11 @@ async function main() {
 
   const mockErc20Artifact = await hre.artifacts.readArtifact("contracts/MockERC20.sol:MockERC20");
   fs.writeFileSync(path.join(outDir, "MockERC20.abi.json"), JSON.stringify(mockErc20Artifact.abi, null, 2));
+  fs.writeFileSync(path.join(outDir, "MockERC20.json"), JSON.stringify({ abi: mockErc20Artifact.abi, bytecode: mockErc20Artifact.bytecode }, null, 2));
+
+  const mockFeedArtifact = await hre.artifacts.readArtifact("contracts/MockV3Aggregator.sol:MockV3Aggregator");
+  fs.writeFileSync(path.join(outDir, "MockV3Aggregator.abi.json"), JSON.stringify(mockFeedArtifact.abi, null, 2));
+  fs.writeFileSync(path.join(outDir, "MockV3Aggregator.json"), JSON.stringify({ abi: mockFeedArtifact.abi, bytecode: mockFeedArtifact.bytecode }, null, 2));
 
   if (mockFeedAddress) {
     fs.writeFileSync(path.join(outDir, "MockV3Aggregator.address.json"), JSON.stringify({ address: mockFeedAddress }, null, 2));

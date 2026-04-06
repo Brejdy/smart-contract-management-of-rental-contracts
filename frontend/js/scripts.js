@@ -5,6 +5,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const contractAddressDisplay = document.getElementById("contractAddress");
   const deployButton = document.getElementById("deployButton");
 
+  async function fetchJsonOrNull(path) {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function resolveLiveDependency({
+    provider,
+    signer,
+    artifactPath,
+    abiPath,
+    addressPath,
+    deployArgs,
+    label,
+  }) {
+    const knownAddress = (await fetchJsonOrNull(addressPath))?.address;
+    if (knownAddress && ethers.utils.isAddress(knownAddress)) {
+      const code = await provider.getCode(knownAddress);
+      if (code && code !== "0x") {
+        return knownAddress;
+      }
+    }
+
+    const artifact = await fetchJsonOrNull(artifactPath);
+    if (!artifact?.abi || !artifact?.bytecode) {
+      const abiOnly = await fetchJsonOrNull(abiPath);
+      if (abiOnly?.length && knownAddress && ethers.utils.isAddress(knownAddress)) {
+        throw new Error(
+          `${label} address points to a non-existent contract on the current chain. Re-run the deploy export script or add ${artifactPath}.`
+        );
+      }
+      throw new Error(`${label} artifact is missing. Run the deploy export script once to create ${artifactPath}.`);
+    }
+
+    const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
+    const instance = await factory.deploy(...deployArgs);
+    await instance.deployed();
+    return instance.address;
+  }
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -36,19 +80,36 @@ document.addEventListener("DOMContentLoaded", () => {
       const abi = rentalArtifact.abi;
       const bytecode = rentalArtifact.bytecode;
 
-      const priceFeedAddress = (await fetch("abi/MockV3Aggregator.address.json").then((r) => r.json())).address;
-
       let stablecoinAddress = ethers.constants.AddressZero;
       let rentAmount;
       let depositAmount;
 
-      if (currency === "usdc") {
-        const tokenAddressJson = await fetch("abi/MockERC20.address.json").then((r) => r.json());
-        stablecoinAddress = tokenAddressJson.address;
+      const priceFeedAddress = await resolveLiveDependency({
+        provider,
+        signer,
+        artifactPath: "abi/MockV3Aggregator.json",
+        abiPath: "abi/MockV3Aggregator.abi.json",
+        addressPath: "abi/MockV3Aggregator.address.json",
+        deployArgs: [8, ethers.utils.parseUnits("2000", 8)],
+        label: "Mock ETH/USD oracle",
+      });
 
-        const tokenAbi = await fetch("abi/MockERC20.abi.json").then((r) => r.json());
-        const token = new ethers.Contract(stablecoinAddress, tokenAbi, signer);
-        const decimals = Number(await token.decimals());
+      if (currency === "usdc") {
+        const tokenArtifact = await fetch("abi/MockERC20.json").then((r) => r.json());
+        const tokenAbi = tokenArtifact.abi;
+        const tokenFactory = new ethers.ContractFactory(tokenAbi, tokenArtifact.bytecode, signer);
+        const deployedToken = await tokenFactory.deploy(
+          "Mock USDC",
+          "mUSDC",
+          6,
+          tenantAddress,
+          ethers.utils.parseUnits("100000", 6)
+        );
+        await deployedToken.deployed();
+        stablecoinAddress = deployedToken.address;
+
+        const stablecoin = new ethers.Contract(stablecoinAddress, tokenAbi, signer);
+        const decimals = Number(await stablecoin.decimals());
 
         rentAmount = ethers.utils.parseUnits(rent || "0", decimals);
         depositAmount = ethers.utils.parseUnits(deposit || "0", decimals);
